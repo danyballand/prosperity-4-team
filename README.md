@@ -34,13 +34,6 @@ analysis/        → Notebooks d'analyse des données et résultats
 - [Discord officiel](https://discord.gg/prosperity) — hints et discussions
 - [Writeup Prosperity 3 (2e place)](https://github.com/TimoDiehm/imc-prosperity-3) — référence
 
-## ⚙️ Workflow Git
-
-1. Chacun travaille sur sa **branche** (`git checkout -b feature/ma-strat`)
-2. On push et on fait une **PR** quand c'est prêt
-3. On merge sur `main` = version validée par l'équipe
-4. Le fichier `roundX/submission.py` sur `main` = ce qu'on soumet
-
 ## 🏆 Objectif
 
 Top 25 → Top 5 → 50 000 $ prize pool. Let's go.

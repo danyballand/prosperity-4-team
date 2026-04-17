@@ -49,6 +49,21 @@ R2/
 └── data/                     # CSV R2 (à remplir dès release — vide pour l'instant)
 ```
 
+**Recherche d'alpha offline** (dans `../docs/`) — prompts Gemini Deep Research +
+rapports générés. Voir § 11 pour la stratégie d'exploitation :
+
+```
+docs/
+├── PROMPT_GEMINI_R2_PAIR_TRADING.md        # prompt spécifique pair
+├── PROMPT_GEMINI_R2_CROSS_VENUE.md         # prompt spécifique cross-venue
+├── PROMPT_GEMINI_R2_BASKET_ARB.md          # prompt spécifique basket
+├── PROMPT_GEMINI_R2_META_POSTMORTEMS.md    # prompt meta (échecs/réussites R2)
+├── Analyse Stratégique Pair Trading IMC Prosperity.pdf   # rapport Gemini ✓
+├── Analyse Cross-Venue Arbitrage ORCHIDS P2.pdf          # rapport Gemini ✓
+└── Analyse Stratégie Basket Arbitrage P3.pdf             # rapport Gemini ✓
+#  + (à générer) : Meta post-mortems R2 toutes éditions
+```
+
 ---
 
 ## 3. Les 3 outils — que font-ils, pourquoi ?
@@ -331,6 +346,9 @@ validée.** Aucun submit depuis une branche expérimentale.
 - [ ] Run `python3 analyze_r2.py ../R1/data/` → verify tool works
 - [ ] Run `python3 r2_primitives.py` → All primitives functional
 - [ ] Vérifier que `../R1/local_backtest_v3.py` donne encore +27,653
+- [ ] **Lire les 3 rapports Gemini déjà générés** (`docs/Analyse *.pdf`) — au moins l'exec summary de chaque + les sections params exacts (15 min/rapport)
+- [ ] Lancer le **4e prompt Gemini** (`docs/PROMPT_GEMINI_R2_META_POSTMORTEMS.md`) en background → rapport meta dispo au réveil
+- [ ] Extraire de chaque PDF les **params de départ** (hardcoded mean, z-thresholds, position caps) et les **pièges confirmés** → coller dans `R2_PLAYBOOK.md` section calibration
 - [ ] Caller le binôme pour aligner rôles (split produit / phase / approche)
 - [ ] Décider **qui a le dernier mot** sur le submit final
 - [ ] Préparer Discord/Slack + Google Doc live
@@ -344,7 +362,100 @@ Demain matin quand les CSV arrivent :
 
 ---
 
+## 11. Recherche d'alpha offline — stratégie Gemini Deep Research
+
+### Pourquoi on a fait ça
+
+Notre backtester donne la fidélité sur **ce que notre code fait**, pas sur
+**ce que les autres teams ont fait**. Pour combler notre gap de ~3k vs top R1
+et ne pas répéter leurs erreurs en R2, on a besoin de **compétitive intelligence**
+sur les 3 éditions précédentes (P1 2023, P2 2024, P3 2025).
+
+On a donc préparé **4 prompts Gemini Deep Research** (dans `../docs/`) qui
+tournent en parallèle et produisent des rapports exhaustifs, chacun focalisé
+sur un format R2 historique ou une dimension transversale.
+
+### Les 4 prompts
+
+| # | Fichier | Objet | Priorité info |
+|---|---|---|---|
+| 1 | `PROMPT_GEMINI_R2_PAIR_TRADING.md` | P1 2023 PINA/COCO | Params exacts ratios/z + variantes rejetées + gestion multi-leg |
+| 2 | `PROMPT_GEMINI_R2_CROSS_VENUE.md` | P2 2024 ORCHIDS | Mécanique `conversions`+tariffs + preuve chiffrée features exogènes = bruit |
+| 3 | `PROMPT_GEMINI_R2_BASKET_ARB.md` | P3 2025 PICNIC_BASKET | Hardcoded vs rolling mean chiffré + formule multi-leg clamp |
+| 4 | `PROMPT_GEMINI_R2_META_POSTMORTEMS.md` | Toutes éditions | 25+ crashes R2 chiffrés + checklist pré-submit |
+
+### Pourquoi **4 prompts spécifiques** et pas 1 général
+
+Gemini Deep Research sur un scope trop large produit 30 pages de fluff dilué.
+Les 3 formats historiques R2 sont **radicalement différents** (pair vs
+cross-venue vs basket) — techniques, paramètres exacts et pièges n'ont rien
+en commun. 4 rapports indépendants = jour J, on lit celui qui match le format
+observé après 30 min d'`analyze_r2.py`, plus le meta en transverse.
+
+### Cadrage anti-confusion intégré aux prompts
+
+Chaque prompt référence explicitement les pièges de cadrage Gemini :
+- GIFT_BASKET (4C+6S+1R) = **P2 R3**, pas P2 R2 ni P3 R2
+- P2 R2 = ORCHIDS cross-venue (pas un basket)
+- P3 R2 = PICNIC_BASKET (pas un pair)
+- Linear Utility = P2 #2 ; leur hardcoded mean `379.50439988484239` concerne le
+  basket P2 R3, pas P3 R2 — à **recalibrer** sur les CSV R2 2026
+
+Chaque prompt demande aussi : **code réel > README**, **citation fichier+ligne**,
+**dire "non trouvé" plutôt qu'inventer un chiffre**.
+
+### Livrables attendus de chaque rapport
+
+Commun aux 3 rapports spécifiques (pair / cross-venue / basket) :
+1. Exploration ≥ 10 repos GitHub de l'édition ciblée
+2. Tableau comparatif (≥ 10-15 lignes) avec params exacts
+3. Variantes testées et **rejetées** (depuis les commits git)
+4. Pièges / post-mortems spécifiques au format
+5. Diagnostic de notre config par défaut (vs consensus tops, vs top 1-3)
+6. **Playbook 60 min jour J** spécifique à ce format si R2 2026 match
+
+Rapport meta (post-mortems transverse) :
+1. ≥ 15 teams top-R1 qui ont crashé en R2 (chiffrés, sourcés)
+2. Catégorisation par cause racine (5 catégories : code, stratégie, calibration, équipe, compréhension jeu)
+3. Patterns récurrents (top 5)
+4. Teams qui ont **remonté** grâce à R2 (≥ 5)
+5. Pièges spécifiques à Prosperity 4 2026
+6. **Checklist pré-submit** (≥ 15 items dérivés des crashes)
+
+### Comment on exploite ces rapports jour J
+
+1. **T-12h à T-0** (veille au soir → matin release) :
+   - Lire les 4 rapports en entier
+   - Extraire dans un Google Doc live : tableau **params exacts** par format (hardcoded mean, entry_z, exit_z, target_position, std_window) + **checklist pré-submit** du rapport meta
+
+2. **T+0 à T+30** (release + analyse) :
+   - `analyze_r2.py` identifie le format (pair / cross-venue / basket / autre)
+   - Ouvrir **le rapport qui match** + **le rapport meta** en parallèle
+
+3. **T+30 à T+90** (activation template) :
+   - Le rapport qui match fournit les **params de départ exacts** (pas de fourchette flou)
+   - Le rapport meta fournit la **checklist de pièges à vérifier** dans le code
+
+4. **T+90 à T+180** (calibration + submit) :
+   - Méthodologie 8-étapes standard, avec grid search dans les ranges suggérés par le rapport spécifique
+
+### Si R2 2026 est un format **inattendu** (pas pair/cross-venue/basket)
+
+Les rapports restent utiles :
+- Le rapport meta couvre toutes les éditions, dont les checklists pré-submit
+- Les primitives `r2_primitives.py` couvrent les building blocks (z-score hardcodé,
+  swmid, safe_order, multi_leg) qui s'appliquent à la plupart des formats
+- Les patterns « rolling mean qui étouffe le signal », « multi-leg overshoot »,
+  « features exogènes distractrices » sont **universels**, pas spécifiques au format
+
+Dans ce cas : tomber sur du market making étendu ou un format nouveau. Adapter
+un des 3 templates ou écrire une 4e stratégie en suivant la structure de
+`trader_r2_template.py`.
+
+---
+
 ## Fin
 
 **Principe directeur** : la préparation, c'est 80% du résultat en R2. On a fait
-notre part. Demain, on exécute proprement.
+notre part (templates + primitives + backtester + 4 rapports Gemini + playbook).
+Demain, on exécute proprement.

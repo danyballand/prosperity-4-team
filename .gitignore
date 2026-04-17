@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+.claude/
+
+# Data (trop lourd + récupérable depuis IMC)
+ROUND_*/
+data/
+data_*/
+
+# Submissions / live logs (contiennent des infos personnelles)
+*.json
+!package.json
+*.log
+
+# Backups
+Prosperity_backup_*/
+*_backup_*.py
+
+# Rapport auto-généré (regen à chaque run)
+R2_ANALYSIS_REPORT.md
+R3_ANALYSIS_REPORT.md
+R4_ANALYSIS_REPORT.md
+R5_ANALYSIS_REPORT.md
+
+# Archives lourdes (IA dumps + backtests logs — 50+ MB pas critique pour le pote)
+archive/*.zip
+archive/codex_*/
+archive/gemini_*/
+archive/backtests/
+archive/gemini_all_in_one.txt
+# On garde archive/versions/ (historique trader_v1 → v20, utile pour contexte)
+# On garde archive/bot_autopsy.py (utilitaire custom)

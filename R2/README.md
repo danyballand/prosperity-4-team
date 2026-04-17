@@ -60,8 +60,8 @@ docs/
 ├── PROMPT_GEMINI_R2_META_POSTMORTEMS.md    # prompt meta (échecs/réussites R2)
 ├── Analyse Stratégique Pair Trading IMC Prosperity.pdf   # rapport Gemini ✓
 ├── Analyse Cross-Venue Arbitrage ORCHIDS P2.pdf          # rapport Gemini ✓
-└── Analyse Stratégie Basket Arbitrage P3.pdf             # rapport Gemini ✓
-#  + (à générer) : Meta post-mortems R2 toutes éditions
+├── Analyse Stratégie Basket Arbitrage P3.pdf             # rapport Gemini ✓
+└── Analyse des Échecs IMC Prosperity Round 2.pdf         # rapport Gemini meta ✓
 ```
 
 ---
@@ -346,9 +346,9 @@ validée.** Aucun submit depuis une branche expérimentale.
 - [ ] Run `python3 analyze_r2.py ../R1/data/` → verify tool works
 - [ ] Run `python3 r2_primitives.py` → All primitives functional
 - [ ] Vérifier que `../R1/local_backtest_v3.py` donne encore +27,653
-- [ ] **Lire les 3 rapports Gemini déjà générés** (`docs/Analyse *.pdf`) — au moins l'exec summary de chaque + les sections params exacts (15 min/rapport)
-- [ ] Lancer le **4e prompt Gemini** (`docs/PROMPT_GEMINI_R2_META_POSTMORTEMS.md`) en background → rapport meta dispo au réveil
+- [ ] **Lire les 4 rapports Gemini** (`docs/Analyse *.pdf`) — au moins l'exec summary de chaque + les sections params exacts (15 min/rapport, ~60 min total)
 - [ ] Extraire de chaque PDF les **params de départ** (hardcoded mean, z-thresholds, position caps) et les **pièges confirmés** → coller dans `R2_PLAYBOOK.md` section calibration
+- [ ] Du rapport **Échecs R2** : extraire la **checklist pré-submit** (≥15 items) → coller dans `R2_PLAYBOOK.md` section finale
 - [ ] Caller le binôme pour aligner rôles (split produit / phase / approche)
 - [ ] Décider **qui a le dernier mot** sur le submit final
 - [ ] Préparer Discord/Slack + Google Doc live
@@ -373,7 +373,8 @@ sur les 3 éditions précédentes (P1 2023, P2 2024, P3 2025).
 
 On a donc préparé **4 prompts Gemini Deep Research** (dans `../docs/`) qui
 tournent en parallèle et produisent des rapports exhaustifs, chacun focalisé
-sur un format R2 historique ou une dimension transversale.
+sur un format R2 historique ou une dimension transversale. **Les 4 rapports
+sont générés** (PDF dans `../docs/`) et prêts à être exploités.
 
 ### Les 4 prompts
 

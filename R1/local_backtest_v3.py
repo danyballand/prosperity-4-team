@@ -27,7 +27,7 @@ from collections import defaultdict
 from datamodel import OrderDepth, TradingState, Order, Listing, Trade
 from trader import Trader, POSITION_LIMIT
 
-DATA_DIR = os.path.join(os.path.dirname(__file__), "ROUND_1")
+DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 DAYS = [-2, -1, 0]
 PRODUCTS = ["ASH_COATED_OSMIUM", "INTARIAN_PEPPER_ROOT"]
 LIVE_DURATION_TS = 100_000  # live = 1000 snapshots (0, 100, ..., 99_900)

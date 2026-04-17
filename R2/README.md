@@ -1,11 +1,48 @@
-# Round 2 — préparation complète
+# Round 2 — en cours
 
-**Statut** : Round 2 démarre aujourd'hui (18 avril 2026). Tout ce qui est
-dans ce dossier a été préparé EN AMONT pour qu'on puisse, au moment où les
-CSV R2 sortent, passer directement à l'action sans se réinventer.
+**Statut** (20 avril 2026) : R2 en cours, submit final **`trader_r2_v3_mega.py`**
+(side channel id_markout Osm + bid MAF 500). Deadline dans quelques heures.
 
-**Temps cible release → submit : 180 minutes.** Ce dossier contient l'arsenal
-pour tenir ce délai.
+---
+
+## 🎯 État actuel
+
+**R2 s'est avéré être une extension de R1, PAS un nouveau format** (pair/basket/cross-venue).
+
+- Mêmes produits : ASH_COATED_OSMIUM + INTARIAN_PEPPER_ROOT
+- Mêmes position limits (80)
+- NEW : MAF bid (top 50% → +25% volume)
+- NEW : Manual Invest challenge (Research/Scale/Speed budget 50k)
+
+**→ Les 3 templates préparés EN AMONT (pair/basket/cross-venue) n'ont PAS servi pour l'algo.**
+
+### Submit final : `trader_r2_v3_mega.py`
+
+Après **9 submits IMC** et **3 jours d'exploration**, le gain incrémental vs baseline est :
+
+| | Baseline v31 | v3_mega final |
+|---|---:|---:|
+| Live R2 day 0 attendu | ~9,302 | ~**10,726** |
+| **Delta** | | **+1,424 XIREC** |
+
+**Découverte-clé : side channel `id_markout` sur Osmium** — ajouter ce flag cause un gain reproductible de +1,011 XIREC, même si le détecteur ne se déclenche jamais en simulation IMC (bot IDs vides). Effet binaire, non-directionnel (sign-flip test confirme).
+
+Voir [`EXPLORATION.md`](EXPLORATION.md) pour le journal complet de l'analyse.
+
+### Manual challenge
+
+Allocation soumise : **Research=15% / Scale=45% / Speed=40%** (optimum math calculé via `optim_manual.py`).
+
+- EV pessimistic : +140k XIREC
+- EV median : +190k XIREC
+- EV optimistic : +290k XIREC
+
+---
+
+## 📁 Préparation EN AMONT (conservée pour référence / R3)
+
+Tout ce qui est dans ce dossier a été préparé avant release R2 pour passer à l'action en 180 min.
+**Ces outils restent utiles pour R3-R5** si nouveaux formats.
 
 ---
 
@@ -38,15 +75,59 @@ on remplit les configs (paramètres numériques), on backteste, on submit.
 
 ## 2. Structure du dossier
 
+### Fichiers actifs (submit final R2)
+
 ```
 R2/
-├── README.md                 # ce fichier
-├── R2_PLAYBOOK.md            # ★ DECISION TREE 180-min à ouvrir le jour J
-├── analyze_r2.py             # ★ 1-click analyse CSV (stats, corr, basket, ADF)
-├── r2_primitives.py          # ★ building blocks testés
-├── trader_r2_template.py     # ★ skeleton plug-and-play avec 3 templates
-├── datamodel.py              # fourni par IMC (pour imports)
-└── data/                     # CSV R2 (à remplir dès release — vide pour l'instant)
+├── README.md                      # ce fichier
+├── EXPLORATION.md                 # ★ journal complet 3j d'exploration algo
+├── POSTMORTEM_R2.md               # ★ template à remplir post-results
+│
+├── trader_r2_v3_mega.py           # ⭐ SUBMIT FINAL R2 (side channel + bid 500)
+├── trader_r2.py                   # v31 + bid 300 (baseline submit initial 276310)
+├── optim_manual.py                # Grid search allocation R/S/Speed (→ 15/45/40)
+│
+└── data/                          # CSV R2 (copiés depuis Downloads/)
+```
+
+### Variantes traders explorées
+
+```
+R2/
+├── trader_r2_v2.py                # v31 + Pepper cycling rolling MA (échec: -1,381)
+├── trader_r2_v3a.py               # v31 + id_markout Osm bid 300 (découverte: +1,011)
+├── trader_r2_v3b.py               # v31 + bid MAF agressif 1000 (non submit)
+├── trader_r2_v3c.py               # v3a + bid 500 (submit 279306)
+├── trader_r2_v3_reverse.py        # v3a sign-flip test (confirme side channel)
+├── trader_r2_v3_amplified.py      # v3a + 3× calls (plateau confirmé)
+├── trader_r2_v4.py                # v31 + Pepper snap-back Codex (échec: -525)
+└── trader_r2_probe.py             # v31 + enhanced logging (non submit, diagnostic)
+```
+
+### Scripts d'analyse
+
+```
+R2/
+├── local_backtest_r2.py           # Backtester v3 adapté R2 (validated Pep 99.6%, Osm 41%)
+├── local_backtest_r2_maf.py       # Backtester + simulation MAF +25% volume
+├── grid_search_r2.py              # Grid params v31 (make_edge, bootstrap, skew...)
+├── grid_search_features.py        # Grid features (OBI, adaptive_fv, kalman...)
+├── grid_triple_edge.py            # Test ratios triple_edge via monkey-patch
+├── grid_cycling.py                # Grid Pepper cycling (v2)
+├── grid_v4_snapback.py            # Grid Pepper snap-back (v4)
+├── verify_codex_signals.py        # Validation signaux Codex
+├── analyze_imc_logs.py            # Parser logs IMC multi-submits
+└── analyze_r2.py                  # Script original 1-click CSV stats
+```
+
+### Toolkit préparé EN AMONT (conservé pour R3-R5)
+
+```
+R2/
+├── R2_PLAYBOOK.md                 # DECISION TREE 180-min pour nouveau format
+├── r2_primitives.py               # Building blocks (SpreadTrader, HardcodedMeanZ, swmid...)
+├── trader_r2_template.py          # Skeleton 3 templates (pair/basket/cross-venue) — NON UTILISÉ R2
+└── datamodel.py                   # fourni par IMC
 ```
 
 **Recherche d'alpha offline** (dans `../docs/`) — prompts Gemini Deep Research +

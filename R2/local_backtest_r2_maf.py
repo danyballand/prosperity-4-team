@@ -27,7 +27,43 @@ USE_V32 = "v32" in args
 USE_MAF = "maf" in args
 USE_R2 = "r2" in args
 
-if USE_R2:
+if "r2mega" in args:
+    sys.path.insert(0, HERE)
+    import trader_r2_v3_mega as trader_module
+    TRADER_LABEL = "v3_MEGA (side channel + amplified + bid=500)"
+elif "r2amp" in args:
+    sys.path.insert(0, HERE)
+    import trader_r2_v3_amplified as trader_module
+    TRADER_LABEL = "v3_amplified (id_markout Osm + 3 calls + dummy live, bid=500)"
+elif "r2rev" in args:
+    sys.path.insert(0, HERE)
+    import trader_r2_v3_reverse as trader_module
+    TRADER_LABEL = "v3_reverse (id_markout Osm CONTRARIAN, bid=300)"
+elif "probe" in args:
+    sys.path.insert(0, HERE)
+    import trader_r2_probe as trader_module
+    TRADER_LABEL = "probe (v31 identical strategy + enhanced logging)"
+elif "r2v4" in args:
+    sys.path.insert(0, HERE)
+    import trader_r2_v4 as trader_module
+    TRADER_LABEL = "v4 (v31 + Pepper snap-back trend-residual)"
+elif "r2v3a" in args:
+    sys.path.insert(0, HERE)
+    import trader_r2_v3a as trader_module
+    TRADER_LABEL = "v3a (id_markout aggressive Osm, bid=300)"
+elif "r2v3b" in args:
+    sys.path.insert(0, HERE)
+    import trader_r2_v3b as trader_module
+    TRADER_LABEL = "v3b (v31, bid=1000 MAF aggressive)"
+elif "r2v3c" in args:
+    sys.path.insert(0, HERE)
+    import trader_r2_v3c as trader_module
+    TRADER_LABEL = "v3c (id_markout Osm + bid=500)"
+elif "r2v2" in args:
+    sys.path.insert(0, HERE)
+    import trader_r2_v2 as trader_module
+    TRADER_LABEL = "trader_r2_v2 (v31+bid=300+cycling)"
+elif USE_R2:
     # Importer depuis R2/ (même dir que ce script)
     sys.path.insert(0, HERE)
     import trader_r2 as trader_module

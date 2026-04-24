@@ -1,169 +1,150 @@
-# Round 3 — Options Trading (VELVETFRUIT)
+# Round 3 — "Gloves Off" : Options Trading
 
-> **État** : en cours — baseline `+23,929` backtest validé, alpha discovery via Codex en cours.
-> **Lead** : Dany. **Deadline** : TBD (24 avril 2026).
-> **Dernière mise à jour** : après Codex P1 (IV surface).
-
----
-
-## 1 · Le format du Round 3 en 3 phrases
-
-R3 change complètement de registre : **au lieu de spot, on trade des options**. L'univers se compose de :
-- **1 produit stable** (`HYDROGEL_PACK`) — comportement type Osmium/Kelp des rounds précédents.
-- **1 underlying** (`VELVETFRUIT_EXTRACT`, noté **VE**) — actif sous-jacent des options.
-- **10 call options européens** (`VEV_4000` à `VEV_6500`) — des calls sur VE avec strikes différents, **même expiration** (TTE ~7 jours à t=0).
-
-L'enjeu : **market-making intelligent sur VE et HYD** + **détection de mispricings sur les options** via la surface IV.
+> **État** : submit-ready — baseline `+33,036 SS` validée en backtest 3 jours.
+> **Lead** : Dany. **Date** : 2026-04-24.
+> **Dernière mise à jour** : après intégration Wiki officiel + P1 follow-up + P4 + tentative scalping.
 
 ---
 
-## 2 · Les 12 produits, en détail
+## 1 · TL;DR pour l'équipe
 
-| Symbol | Type | Prix obs | Spread | Limit | Logique trading |
-|---|---|---|---|---|---|
-| `HYDROGEL_PACK` | Stable | ~10,000 | 16 | 80 | MM passif classique (fixed_fv=10000, triple_edge) |
-| `VELVETFRUIT_EXTRACT` | Underlying | 5247→5295 | 5 | 200 | MM avec wall_mid adaptatif + microprice |
-| `VEV_4000` | Call deep ITM (δ≈1) | ~1250 | 2 | 200 | MM simple — comporte comme VE |
-| `VEV_4500` | Call deep ITM | ~750 | 2 | 200 | MM simple |
-| `VEV_5000` | Call ITM | ~260 | 2 | 100 | MM passif |
-| `VEV_5100` | Call near ITM | ~170 | 2 | 100 | MM passif |
-| `VEV_5200` | Call ATM | ~90 | 2 | 100 | ⚠️ MM dangereux (adverse selection) |
-| `VEV_5300` | Call ATM | ~50 | 2 | 80 | 🔥 **SHORT directionnel** (IV surcotée +0.01) |
-| `VEV_5400` | Call OTM | ~24 | 2 | 80 | 🔥 **LONG directionnel** (IV sous-cotée -0.01) |
-| `VEV_5500` | Call OTM | ~12 | 2 | 80 | ⚠️ Illiquide, pas d'edge |
-| `VEV_6000` | Call deep OTM | ~1 | 1 | 50 | ❌ Intrinsic ~0, ne pas trader |
-| `VEV_6500` | Call deep OTM | ~0 | 1 | 50 | ❌ Illiquide |
-
-> ⚠️ Limits **présumées**, à confirmer avec le Wiki IMC Prosperity 4.
-
-### Pourquoi les options compliquent
-
-- **Pricing options** = la valeur dépend de (S, K, T, σ, r), pas d'un simple wall_mid
-- **Adverse selection violente** : les options ATM/OTM sont traded par des bots avec pricing précis. Un MM naïf qui quote symétriquement autour du mid **saigne** (-11,000 sur nos 3 jours en v1).
-- **Solution** : soit (a) Black-Scholes pricing rigoureux, soit (b) désactiver les strikes dangereux, soit (c) exploiter le mispricing du MM adverse.
+- **Backtest baseline** : **+33,036 SS** sur 3 jours.
+- **Stratégie** : MM passif sur HYD, VE, et VEV ITM (4000-5100). Strikes 5200+ désactivés (adverse selection non neutralisable sans BS pricing complet).
+- **Scalping VEV_5400 testé** (Z-score IV surface residual) : -50 SS vs baseline → **désactivé** (flag `ENABLE_VEV_5400_SCALPING = False`). Code laissé en place pour itération future.
+- **Manual Bio-Pods** : bids recommandés **b1 = 750, b2 = 840** (E ~ 85 SS/trade).
 
 ---
 
-## 3 · Baseline actuelle (v2)
+## 2 · Wiki officiel IMC — specs R3 confirmées
 
-**Backtest 3 jours : +23,929 seashells**
+| Item | Valeur | Source |
+|---|---|---|
+| Produits tradables | HYDROGEL_PACK, VELVETFRUIT_EXTRACT, VEV_{4000..6500} (10 strikes) | Wiki |
+| **Limits position** | HYD = **200**, VE = **200**, chaque VEV = **300** | Wiki ✅ |
+| TTE (historical days) | day 0 = 8j, day 1 = 7j, day 2 = 6j | Wiki ✅ |
+| **TTE (live R3)** | **5 jours** au start | Wiki ✅ |
+| Day count convention | 250 trading days/an | confirmé Codex P1 Q5 |
+| Settlement | cash-settled à expiry (max(S-K, 0)) | Wiki |
+| Manual challenge | Ornamental Bio-Pods (voir §6) | Wiki |
 
-| Produit | PnL 3j | Stratégie |
-|---|---:|---|
-| HYDROGEL_PACK | +8,778 | MM passif (make_edge=97 hérité Osmium, fixed_fv=10000) |
-| VELVETFRUIT_EXTRACT | +7,845 | MM passif (wall_mid adaptatif, microprice, make_edge=3) |
-| VEV_4000 | +5,247 | MM passif (δ≈1, comporte comme VE) |
-| VEV_4500 | +689 | MM passif |
-| VEV_5000 | +661 | MM passif |
-| VEV_5100 | +709 | MM passif |
-| VEV_5200 → 6500 | 0 | **Désactivés** (position_limit=0) |
-| **TOTAL** | **+23,929** | |
-
-### Évolution v1 → v2
-- **v1** (tout actif, fixed_fv=5250 sur VE) : **-11,115** ❌ (VE saigne -15,910)
-- **v2** (fix VE wall_mid + désactivation VEVs OTM) : **+23,929** ✅
+**Correction critique appliquée** : on avait HYD = 80 (dette R1/R2) et VEV limits variables 50-200. Fix au wiki → **+9,107 SS** sur la baseline sans rien changer d'autre.
 
 ---
 
-## 4 · Phase actuelle : Alpha Discovery via Codex
+## 3 · Les 12 produits — stratégie finale
 
-Méthodologie : **4 prompts Codex indépendants** (voir `R3/prompts/`) pour couvrir les 4 angles d'analyse :
+| Symbol | Type | Prix obs | Limit | PnL 3j | Stratégie |
+|---|---|---:|---:|---:|---|
+| `HYDROGEL_PACK` | Stable | ~10,000 | 200 | +8,778 | MM passif (fixed_fv=10000, triple_edge) |
+| `VELVETFRUIT_EXTRACT` | Underlying | 5247→5295 | 200 | +7,845 | MM wall_mid adaptatif + microprice |
+| `VEV_4000` | Deep ITM | ~1250 | 300 | +5,247 | MM passif (δ≈1, comporte comme VE) |
+| `VEV_4500` | Deep ITM | ~750 | 300 | +689 | MM passif |
+| `VEV_5000` | ITM | ~260 | 300 | +661 | MM passif |
+| `VEV_5100` | Near ITM | ~170 | 300 | +709 | MM passif |
+| `VEV_5200` → 6500 | ATM/OTM | | 0* | 0 | **Désactivés** (adverse selection -5k à -14k en MM simple) |
+| **TOTAL** | | | | **+33,036** | |
 
-| # | Prompt | Question | Statut |
+> *Limit forcée à 0 dans `PRODUCT_PARAMS` pour désactiver le MM. Le flag `ENABLE_VEV_5400_SCALPING` peut réactiver un scalping dédié sur 5400 (actuellement off — voir §5).
+
+---
+
+## 4 · Résultats Codex — synthèse par prompt
+
+| Prompt | Question | Verdict | Impact |
 |---|---|---|---|
-| P1 | `P1_IV_SURFACE.md` | Surface IV + mispricings par strike | ✅ Reçu |
-| P2 | `P2_DELTA_HEDGE.md` | Delta empirique + lead/lag | ⏳ À lancer |
-| P3 | `P3_MICROSTRUCTURE.md` | Trader IDs + OBI + régimes | ⏳ À lancer |
-| P4 | `P4_SPREADS_ARB.md` | Butterfly + co-intégration | ⏳ À lancer |
+| **P1** | Surface IV + mispricings | VEV_5400 IV cheap (-1.06%), VEV_5300 IV rich (+0.82%) | identifie edge théorique |
+| **P1 follow-up** | Stabilité rolling + AR(1) résidu | AR(1) = 0.948, half-life 12.9 ts → Z-score tradeable | motive plan B scalping |
+| **P2** | Delta empirique vs BS | δ_emp ≈ 70% × δ_BS sur tous strikes. Lead/lag = 0 | pas d'exploit delta hedge |
+| **P3** | Microstructure (trader IDs, OBI) | VEV 5300-6000 flow 100% à l'ask (sell-heavy). **Pas d'exploit SHORT** | invalide la jambe SHORT 5300 |
+| **P4** | Spreads / stat arb | **Aucun arb executable**. Butterflies 0 violations. Synthetic VE < 1 tick | pas d'alpha |
 
-Un mega-prompt pour ChatGPT Pro Agent Mode existe également : `prompts/AGENT_GPT_MEGA.md` (browsing + Python sandbox + deep reasoning combinés).
+**Implication critique P3 sur P1** : on ne peut PAS shorter 5300 (pas de buyers). Le "pair trade" 5300/5400 du plan original est mort → **single-leg LONG 5400 uniquement** → scalping Z-score (plan B).
 
----
-
-## 5 · Résultats Codex P1 : Surface IV
-
-Détail complet dans `R3/codex_p1_results/` et synthèse stratégique dans `R3/research/SYNTHESE_P1.md`.
-
-### Findings en un tableau
-
-| Strike | Direction | IV obs | IV surface | Résidu | Half-spread | EV net (ticks) |
-|---|---|---:|---:|---:|---:|---:|
-| **5400** | 🟢 **LONG** | 20.70% | 21.75% | **-1.06%** | 0.69 | **+1.43** |
-| **5300** | 🔴 **SHORT** | 22.09% | 21.27% | **+0.82%** | 1.05 | **+1.32** |
-| 5200 | SHORT marginal | 21.85% | 21.31% | +0.54% | 1.44 | +0.12 |
-| 5500 | AVOID | 22.46% | 22.73% | -0.28% | 0.57 | -0.29 |
-| 4000, 4500, 5000-5100 | AVOID | — | — | — | — | < -1.67 |
-| 6000, 6500 | AVOID | — | — | — | — | -0.33, -0.44 |
-
-### Stabilité jour par jour (robustesse)
-
-**VEV_5400 LONG :**
-| Day | Résidu | EV/trade | % trades profitables |
-|---|---:|---:|---:|
-| 0 | -0.86% | +1.26 | 86.2% |
-| 1 | -1.10% | +1.53 | **100.0%** |
-| 2 | -1.21% | +1.50 | 98.5% |
-
-**VEV_5300 SHORT :**
-| Day | Résidu | EV/trade | % trades profitables |
-|---|---:|---:|---:|
-| 0 | +0.48% | +0.46 | 69.9% |
-| 1 | +1.01% | +1.92 | 94.5% |
-| 2 | +0.96% | +1.57 | **99.99%** |
-
-**Signal stable et se renforce** sur les 3 jours. Pas un artefact d'un seul jour.
-
-### Interprétation stratégique
-
-Le résidu IV **ne converge PAS** sur les 3 jours (il diverge même légèrement). Cela signifie :
-- **Pas de mean-reversion tradable** au sens classique.
-- Mais **signature structurelle** du market maker d'IMC : le MM quote 5300 "trop haut" et 5400 "trop bas" systématiquement → **ce pattern persistera en live**.
+Détails : `research/SYNTHESE_P1.md`, `research/SYNTHESE_P2_P3.md` (inclut updates P1 follow-up + P4), `codex_p{1,2,3,4}_results/`, `codex_p1_followup_results/`.
 
 ---
 
-## 6 · Stratégie proposée — Pair Trade 5300/5400
+## 5 · Plan B — Scalping VEV_5400 (tenté, échoué, désactivé)
 
-### Principe
+### Idée
 
-Au lieu de trader les 2 strikes séparément, on construit un **pair trade** qui exploite l'anomalie d'adjacence :
+Le résidu IV (VEV_5400_market - surface_fit) a AR(1) = 0.948, std ≈ 0.003. Quand Z = (residual - mean) / std < -2, le marché est "anormalement cheap" → LONG. Exit quand Z > 0 (retour à la normale).
 
-```
-LONG VEV_5400 (IV cheap) + SHORT VEV_5300 (IV rich)
-```
+### Implémentation
 
-### Exécution : Skewed MM one-sided
+Modules standalone créés :
+- `bs_pricing.py` : Black-Scholes pricing (call, IV Brent bisection, delta, vega, theta). Self-tests OK.
+- `iv_surface.py` : fit quadratique y = a·x² + b·x + c en log-moneyness via Gauss-Jordan 3x3 + `IVSurfaceTracker` EMA (alpha=0.02, half-life ~34 ticks) avec dump/load pour JSON persistence.
+- Hook dans `trader_r3.py` : `_scalp_vev_5400()` appelée chaque tick si flag activé.
 
-- **VEV_5400** : on quote **UNIQUEMENT le bid** (pas d'ask), pennying inside. Build jusqu'à +40 contracts.
-- **VEV_5300** : on quote **UNIQUEMENT l'ask** (pas de bid), pennying inside. Build jusqu'à -40 contracts.
-- Pas de crossing du spread (coût 0 en half-spread).
+### Résultat backtest
 
-### Delta hedge VE
+**-50 SS** vs baseline (A+B = 32,986 vs A = 33,036).
 
-- δ(5400) ≈ **0.21** (OTM, calculé BS avec IV=20.7%, T=7/250)
-- δ(5300) ≈ **0.40** (ATM, IV=22.1%)
-- **Delta net par pair** = 0.21 - 0.40 = **-0.19**
-- Pour 40 pairs : net delta = -7.6 → **LONG 8 VE** pour neutraliser
+### Post-mortem (via `debug_scalp.py`)
 
-### EV chiffrée (scenarios pondérés)
+- Z < -2 fire **82 fois / 30,000 ticks** (0.27%) → entrées trop rares.
+- Z > 0 fire **11,651 fois** → exit trop permissif, position liquidée constamment.
+- Market flow 100% à l'ask → impossible d'exit en passif (l'ask qu'on poserait jamais hit). L'exit par hit-bid paye le spread full → **chaque round-trip perd 1-2 ticks**.
+- Résidu moyen **systématiquement négatif** (mean = -0.008) → le "Z = 0" n'est pas l'équilibre, il y a un biais structurel dans la surface fit (VEV_5400 plus cheap que le modèle, en permanence).
 
-| Scenario | Proba | PnL impact |
-|---|---|---:|
-| IV reverts + expiry worthless | 30% | +3,000 SS |
-| IV persists + expiry worthless | 40% | +1,500 SS |
-| S > 5300 à expiry (short 5300 hurts) | 20% | -2,000 SS |
-| Vol spike | 10% | -500 SS |
-| **EV attendue** | | **+1,050 SS** |
+### État actuel
 
-Modeste mais positif, bornée des deux côtés.
+Flag `ENABLE_VEV_5400_SCALPING = False` dans `trader_r3.py` ligne 27. Code laissé en place, modules intacts. Tu peux réactiver après avoir :
+1. recalibré le Z de sortie (seuil > 0 ne marche pas, essayer Z > +1 ou basé sur résidu absolu)
+2. trouvé un moyen d'exit passif (quote ask aggressive ? mais flow 0% at-bid)
+3. ou simplement tenir jusqu'à expiry (mais expose au spot move)
 
 ---
 
-## 7 · Questions ouvertes (avant de coder)
+## 6 · Manual Challenge — Ornamental Bio-Pods
 
-1. **TTE en live** : les 3 jours de backtest couvrent TTE 7j → 4j. Combien de jours reste-t-il en LIVE après notre submit ? Ça change les deltas/vegas.
-2. **Position limits officielles** : toutes présumées, à confirmer sur le Wiki IMC.
-3. **Règle de settlement** : cash-settled ou exercice automatique ? Si cash-settled, OK. Si exercice automatique, il faut liquider avant expiry.
-4. **Bidding/MAF en R3** : existe-t-il encore un système de bid sealed auction comme en R2 ?
+### Règles (Wiki)
+
+- Reserves counterparties uniform dans **{670, 675, ..., 920}** (51 valeurs, step 5).
+- Tu soumets **deux bids** `b1 < b2`.
+- Logique :
+  - Si `b1 ≥ reserve` → trade at `b1`.
+  - Sinon si `b2 ≥ reserve` :
+    - Si `b2 ≥ avg_b2_all_players` → trade at `b2` (full).
+    - Sinon → trade at `b2` avec pénalité `((920 - avg_b2) / (920 - b2))^3` sur le PnL.
+  - Sinon pas de trade.
+- Revente implicite à 920 (confirmé par la formule de pénalité).
+
+### Résultat (script `manual_biopods.py`)
+
+**Recommandation : b1 = 750, b2 = 840**, E[profit/trade] ~ **85 SS**.
+
+**Justification** :
+- Le Nash équilibre pur donne (750, 835) avec E = 85.00. Mais il suppose que tous les joueurs convergent pile à avg_b2 = 835.
+- (750, 840) sacrifie 0.1 SS/trade dans le scénario Nash mais **résiste bien mieux** si la communauté drift un peu plus haut (ce qui est typique sur ces challenges Prosperity où la prudence pousse avg_b2 vers 840-845).
+
+| (b1, b2) | avg=800 | avg=820 | avg=840 | avg=860 |
+|----------|---------|---------|---------|---------|
+| (750, 835) | 85.00 | 85.00 | 80.29 | 66.63 |
+| **(750, 840)** | 84.90 | 84.90 | **84.90** | 68.58 |
+
+**Décomposition de l'EV** :
+- b1 = 750 capte **17 reserves** sur 51 (670..750), profit 170/trade pour ces cas
+- b2 = 840 capte **18 reserves** de plus (755..840), profit ~80/trade en équilibre
+- Reste 16 reserves (845..920) → 0 trade
+
+---
+
+## 7 · Méthodologie & garde-fous
+
+On applique la **méthodologie 8 étapes** éprouvée R1 + R2 :
+
+1. Copier la donnée localement (pas d'accès direct au live)
+2. Backtester exhaustivement sur les 3 jours fournis
+3. Auditer PnL **par produit** (jamais juger sur le total global)
+4. Isoler les sources d'alpha et de perte
+5. Tester une hypothèse à la fois
+6. Versionner chaque variant (`_v1`, `_v2`, ...)
+7. Confirmer la robustesse (backtest 3 jours + variance)
+8. **Ne JAMAIS submit sans audit complet**
+
+> Règle d'or : jamais éditer `trader.py` direct. Toujours créer `trader_<variant>.py` et comparer.
 
 ---
 
@@ -171,67 +152,50 @@ Modeste mais positif, bornée des deux côtés.
 
 ```
 R3/
-├── README.md                      ← ce fichier
-├── trader_r3.py                   ← trader principal (v2, baseline)
-├── local_backtest_r3.py           ← backtester adapté R3 (12 produits, 3 jours)
-├── datamodel.py                   ← copie du datamodel IMC
+├── README.md                       ← ce fichier
+├── trader_r3.py                    ← trader principal (baseline +33,036, scalp OFF)
+├── local_backtest_r3.py            ← backtester 12 produits, 3 jours
+├── datamodel.py                    ← copie datamodel IMC
+│
+├── bs_pricing.py                   ← Black-Scholes standalone (call, IV, delta, vega)
+├── iv_surface.py                   ← fit quadratique IV + IVSurfaceTracker Z-score
+├── debug_scalp.py                  ← instrumentation scalping (fréquence triggers, distribs)
+├── test_vev_reenable.py            ← test réactivation VEV 5200+ sans BS (tous fail)
+├── tune_hyd_ve.py                  ← grid search HYD/VE make_edge (flat)
+├── manual_biopods.py               ← optim bids Bio-Pods (recommande 750/840)
+│
 ├── data/
-│   ├── prices_round_3_day_{0,1,2}.csv   ← order book (3 × 6.5MB)
-│   └── trades_round_3_day_{0,1,2}.csv   ← trades publics (3 × 50KB)
-├── prompts/                       ← prompts de recherche alpha
-│   ├── P1_IV_SURFACE.md           ← ✅ Reçu Codex
-│   ├── P2_DELTA_HEDGE.md          ← ⏳ À lancer
-│   ├── P3_MICROSTRUCTURE.md       ← ⏳ À lancer
-│   ├── P4_SPREADS_ARB.md          ← ⏳ À lancer
-│   └── AGENT_GPT_MEGA.md          ← mega-prompt ChatGPT Pro Agent
-├── codex_p1_results/              ← outputs Codex P1
-│   ├── summary.txt
-│   ├── ev_by_strike.png
-│   ├── iv_surface_by_day.png
-│   ├── z_scores_by_strike_time.png
-│   ├── iv_surface_by_day_summary.csv
-│   ├── iv_surface_overall_summary.csv
-│   └── iv_surface_fit_diagnostics.csv
+│   ├── prices_round_3_day_{0,1,2}.csv
+│   └── trades_round_3_day_{0,1,2}.csv
+├── prompts/                        ← les 4 prompts Codex + mega ChatGPT
+├── codex_p1_results/               ← P1 surface IV
+├── codex_p1_followup_results/      ← P1 follow-up (rolling, AR(1), timing)
+├── codex_p2_results/               ← P2 delta & hedge
+├── codex_p3_results/               ← P3 microstructure
+├── codex_p4_results/               ← P4 spreads / arb
 └── research/
-    └── SYNTHESE_P1.md             ← synthèse stratégique + plan d'intégration
+    ├── SYNTHESE_P1.md
+    └── SYNTHESE_P2_P3.md           ← inclut updates P1 follow-up + P4
 ```
 
 ---
 
-## 9 · Méthodologie (pour l'équipe et les observateurs externes)
+## 9 · Historique équipe LYON
 
-On applique la **méthodologie 8 étapes** éprouvée depuis R1 :
-
-1. **Copier la donnée localement** (pas d'accès direct au live)
-2. **Backtester exhaustivement** sur les 3 jours fournis
-3. **Auditer PnL par produit** (jamais juger sur le total global)
-4. **Isoler les sources d'alpha et de perte** (quel produit gagne, pourquoi)
-5. **Tester une hypothèse à la fois** (éviter les patchs cumulés qui cachent l'effet)
-6. **Versionner** chaque variant (`_v1`, `_v2`, `_fixed`, `_stacked`...)
-7. **Confirmer la robustesse** (au minimum backtest sur les 3 jours + variance simulation)
-8. **Ne JAMAIS submit sans audit complet**
-
-> Règle d'or : **jamais éditer `trader.py` directement. Toujours créer `trader_<variant>.py` et comparer.**
-
----
-
-## 10 · Historique de l'équipe (LYON)
-
-| Round | Rang mondial | PnL | Notes clés |
+| Round | Rang | PnL | Notes |
 |---|---|---:|---|
 | R1 | #366 | +12,157 | Osmium MM v31 (triple_edge, Kalman), Pepper Kalman trend-guard |
-| R2 | similaire | +10,577 | v4_fixed_v2 : Osmium side channel (+1011) + Pepper snap-back passif + bid MAF=500 |
-| R3 | TBD | +23,929 (backtest) | Baseline MM + désactivation VEVs OTM. Alpha via Codex en cours. |
+| R2 | similaire | +10,577 | v4_fixed_v2 : Osmium side channel + Pepper snap-back + bid MAF=500 |
+| R3 | TBD | **+33,036 backtest** | MM HYD+VE+VEV ITM, VEV ATM/OTM off. Manual Bio-Pods (750,840). |
 
 ---
 
-## 11 · Références
+## 10 · Références
 
 - Repo : [github.com/danyballand/prosperity-4-team](https://github.com/danyballand/prosperity-4-team)
 - Docs stratégiques R2 : `../docs/` (4 Gemini Deep Research PDFs)
 - Postmortem R2 : `../R2/POSTMORTEM_R2.md`
-- Playbook R2 : `../R2/R2_PLAYBOOK.md`
 
 ---
 
-**Si tu viens de rejoindre le projet** : lis `R3/README.md` (ce fichier) → `R3/research/SYNTHESE_P1.md` → `R3/prompts/P1_IV_SURFACE.md`. Dans cet ordre tu auras le contexte complet.
+**Si tu viens de rejoindre le projet** : lis ce README → `research/SYNTHESE_P1.md` → `research/SYNTHESE_P2_P3.md`. Dans cet ordre tu auras tout le contexte.

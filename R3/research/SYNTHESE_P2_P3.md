@@ -269,3 +269,70 @@ Je propose de :
 3. **Décider** entre A/B/C en fonction du follow-up
 
 À toi de valider ou pivoter.
+
+---
+
+# UPDATE — Codex P1 Follow-up reçu (2026-04-24, après-midi)
+
+Les 5 questions follow-up ont été répondues. Résultats dans `codex_p1_followup_results/`.
+
+## Verdicts Codex
+
+| Q | Sujet | Verdict Codex | Ma lecture |
+|---|---|---|---|
+| Q1 | Rolling surface 500ts | **GO** — edge 5400 long +1.38, positif 93.5% du temps | ✅ Plan B confirmé |
+| Q2 | Fills | **CAUTION** — 5400 100% at-bid, 5300 0.2% at-ask | ✅ Confirme SHORT 5300 mort |
+| Q3 | Résidu vs dS | **TIMING INTELLIGENT** — AR(1)=0.948, half-life 12.9 ts, R² dS ≈ 0.001 | ✅ Z-score tradeable |
+| Q4 | Spread 5300-5400 | "GO avec timing" | ❌ **Inactionable** (voir ci-dessous) |
+| Q5 | TTE sensitivity | **GO** — edge robuste sur 5j/10j/365 | ✅ Pas artefact |
+
+## Contradiction à résoudre : Q2 invalide Q4
+
+Codex dit Q4 GO avec +0.47 ticks/trade × 19 trades en timing. Mais Q4 requiert **SHORT le spread** = SHORT 5300 + LONG 5400. Or Q2 dit 5300 at_ask = **0.2% = 0.33 unités/jour**. Le backtest Q4 simule un fill à l'ask qui **n'existe pas en pratique**.
+
+Si on exécute en aggressive (hit bid 5300), on paie ~2 ticks par leg × 2 legs = -4 ticks par RT > +0.47 de gain signal. **Net = -3.5 ticks/RT**. Donc Q4 reste **NO-GO** dans les faits.
+
+## Ce qui est actionable post follow-up
+
+**LONG VEV_5400 solo avec timing par Z-score :**
+
+| Composant | Source | Valeur |
+|---|---|---:|
+| Edge entry (bid passif) | Q1 rolling | +1.38 ticks |
+| Positivité rolling 500ts | Q1 | 93.5% des ts |
+| AR(1) résidu | Q3 | 0.948 |
+| Half-life | Q3 | 12.9 ts |
+| Fills bid disponibles | Q2 | 262/jour |
+| R² résidu vs dS | Q3 | 0.001 (indépendant) |
+| Danger level 5400 | P3 | LOW |
+
+**Logique :**
+- Entry : bid passif sur 5400 quand `Z(residu_5400) < -2`
+- Exit : hit bid market quand `Z(residu_5400) > 0` OU après 30 ts (≈ 2.3 × half-life)
+- Cap inventory : +40 (moitié du limit 80)
+- Hedge VE : delta empirique 0.129 × 0.70 ≈ **0.09 par 5400** → short 4 VE pour 40 longs
+- Kill switch : si `Z > +2` pendant 100 ts → flatten
+
+**EV révisée :**
+- Round trips réalistes : 100/jour × 3 jours = 300 RT
+- PnL/RT : +1.38 entry - 1.0 exit aggressive = +0.38 ticks × size 3.5 = +1.33 SS
+- Brut : 300 × 1.33 = **+400 SS**
+- Coût hedge VE (rebalance 20/jour × 1 tick) : -60 SS
+- **Net : ~+340 SS** sur 3 jours
+
+## Matrice de décision mise à jour
+
+| Chemin | Backtest estimé | Risque live | Code à écrire |
+|---|---:|---|---|
+| **A Safe** : baseline v2 + tuning HYD/VE | **~+28,000 SS** | Minimal | Paramètres uniquement |
+| **B Scalping 5400 solo** : A + module Z-score résidu | **~+28,340 SS** | Faible | ~200 lignes (BS + fit + Z + exec) |
+| ~~C Pair trade / Full alpha~~ | ~+22k ±5k | Élevé | **Écarté** |
+
+## Décision recommandée : **A + B en parallèle**
+
+1. Tuner HYD/VE maintenant → lock +4k SS (A)
+2. Coder module scalping 5400 avec flag `enable_vev_5400_scalping` → A/B test (B)
+3. Submit A-seul en initial, puis upgrade vers A+B si le backtest A+B > A
+
+**Total visé backtest : ~+28,500 SS** (contre +23,929 baseline actuelle).
+

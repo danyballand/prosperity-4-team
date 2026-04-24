@@ -1,0 +1,30 @@
+metric,value,notes,entry_day,entry_timestamp,entry_global_ts,entry_spread_mid,entry_spread_exec,exit_day,exit_timestamp,exit_global_ts,exit_spread_mid,exit_spread_exec,holding_ts,pnl_ticks,strategy
+spread_mean,30.808016666666667,C5300_mid - C5400_mid,,,,,,,,,,,,,
+spread_std,3.5076717147443404,,,,,,,,,,,,,,
+spread_min,20.0,,,,,,,,,,,,,,
+spread_max,39.5,,,,,,,,,,,,,,
+spread_ar1,0.9924360568216302,,,,,,,,,,,,,,
+spread_half_life_ts,91.2913257024108,,,,,,,,,,,,,,
+timed_signal_trade_count,19.0,SHORT spread if spread > mean + std; close at mean,,,,,,,,,,,,,
+timed_signal_ev_per_trade,0.47368421052631576,executed bid/ask estimate,,,,,,,,,,,,,
+timed_signal_total_pnl,9.0,one-lot pair,,,,,,,,,,,,,
+static_short_spread_pnl,-12.0,"enter first timestamp, exit last timestamp, one-lot pair",,,,,,,,,,,,,
+,,,0.0,318600.0,318600.0,34.5,33.0,0.0,344600.0,344600.0,30.5,32.0,26000.0,1.0,short_spread_when_above_1sigma
+,,,0.0,347800.0,347800.0,34.5,32.0,0.0,431900.0,431900.0,30.5,32.0,84100.0,0.0,short_spread_when_above_1sigma
+,,,0.0,723400.0,723400.0,34.5,33.0,0.0,783700.0,783700.0,30.5,32.0,60300.0,1.0,short_spread_when_above_1sigma
+,,,0.0,820800.0,820800.0,34.5,33.0,0.0,862500.0,862500.0,30.0,31.0,41700.0,2.0,short_spread_when_above_1sigma
+,,,0.0,868000.0,868000.0,34.5,33.0,0.0,903200.0,903200.0,30.5,32.0,35200.0,1.0,short_spread_when_above_1sigma
+,,,0.0,912400.0,912400.0,34.5,33.0,0.0,941200.0,941200.0,30.5,32.0,28800.0,1.0,short_spread_when_above_1sigma
+,,,1.0,108800.0,1108800.0,34.5,33.0,1.0,153500.0,1153500.0,30.5,32.0,44700.0,1.0,short_spread_when_above_1sigma
+,,,1.0,249300.0,1249300.0,34.5,32.0,1.0,267800.0,1267800.0,30.5,32.0,18500.0,0.0,short_spread_when_above_1sigma
+,,,1.0,286600.0,1286600.0,34.5,33.0,1.0,315200.0,1315200.0,30.5,32.0,28600.0,1.0,short_spread_when_above_1sigma
+,,,1.0,508300.0,1508300.0,34.5,33.0,1.0,534800.0,1534800.0,30.5,32.0,26500.0,1.0,short_spread_when_above_1sigma
+,,,1.0,706400.0,1706400.0,34.5,32.0,1.0,802300.0,1802300.0,30.5,32.0,95900.0,0.0,short_spread_when_above_1sigma
+,,,1.0,846100.0,1846100.0,34.5,33.0,1.0,867500.0,1867500.0,30.5,32.0,21400.0,1.0,short_spread_when_above_1sigma
+,,,1.0,903200.0,1903200.0,34.5,33.0,1.0,943900.0,1943900.0,30.5,32.0,40700.0,1.0,short_spread_when_above_1sigma
+,,,1.0,951500.0,1951500.0,34.5,33.0,2.0,57300.0,2057300.0,30.5,32.0,105800.0,1.0,short_spread_when_above_1sigma
+,,,2.0,81200.0,2081200.0,34.5,33.0,2.0,119200.0,2119200.0,30.5,32.0,38000.0,1.0,short_spread_when_above_1sigma
+,,,2.0,123100.0,2123100.0,34.5,33.0,2.0,351100.0,2351100.0,30.5,32.0,228000.0,1.0,short_spread_when_above_1sigma
+,,,2.0,673100.0,2673100.0,34.5,33.0,2.0,701800.0,2701800.0,30.5,32.0,28700.0,1.0,short_spread_when_above_1sigma
+,,,2.0,893000.0,2893000.0,34.5,33.0,2.0,962100.0,2962100.0,30.5,32.0,69100.0,1.0,short_spread_when_above_1sigma
+,,,2.0,986500.0,2986500.0,34.5,33.0,2.0,999900.0,2999900.0,38.0,40.0,13400.0,-7.0,forced_exit_end

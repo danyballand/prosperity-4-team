@@ -1,15 +1,17 @@
 # Round 3 — "Gloves Off" : Options Trading
 
-> **État** : submit-ready — baseline `+33,036 SS` validée en backtest 3 jours.
+> **État** : submit-ready v4 — backtest `+72,392 SS` sur 3 jours.
 > **Lead** : Dany. **Date** : 2026-04-24.
-> **Dernière mise à jour** : après intégration Wiki officiel + P1 follow-up + P4 + tentative scalping.
+> **Dernière mise à jour** : après submit IMC 369298 + fix HYD adaptive FV (+39k gain).
 
 ---
 
 ## 1 · TL;DR pour l'équipe
 
-- **Backtest baseline** : **+33,036 SS** sur 3 jours.
+- **Backtest total 3 jours** : **+72,392 SS** (v4, adaptive HYD).
+- **Évolution** : +23,929 (v1) → +33,036 (v3 wiki fix limits) → **+72,392 (v4 adaptive HYD)**.
 - **Stratégie** : MM passif sur HYD, VE, et VEV ITM (4000-5100). Strikes 5200+ désactivés (adverse selection non neutralisable sans BS pricing complet).
+- **Gain live-robustness** : submit IMC 369298 a révélé que `fixed_fv=10000 + make_edge=97` quotait hors zone de trading réelle (bid 9903 / ask 10097 vs marché à 9960-10020). Fix = adaptive blend=0.5 clip=10 → HYD passe de +17,885 à **+57,241** sur 3j, gain uniforme +12-14k par jour.
 - **Scalping VEV_5400 testé** (Z-score IV surface residual) : -50 SS vs baseline → **désactivé** (flag `ENABLE_VEV_5400_SCALPING = False`). Code laissé en place pour itération future.
 - **Manual Bio-Pods** : bids recommandés **b1 = 750, b2 = 840** (E ~ 85 SS/trade).
 
@@ -35,14 +37,14 @@
 
 | Symbol | Type | Prix obs | Limit | PnL 3j | Stratégie |
 |---|---|---:|---:|---:|---|
-| `HYDROGEL_PACK` | Stable | ~10,000 | 200 | +8,778 | MM passif (fixed_fv=10000, triple_edge) |
+| `HYDROGEL_PACK` | Stable | ~10,000 | 200 | **+57,241** | MM adaptive (fv=10000 + blend 0.5 wall_mid, clip ±10, make_edge=97, triple_edge) |
 | `VELVETFRUIT_EXTRACT` | Underlying | 5247→5295 | 200 | +7,845 | MM wall_mid adaptatif + microprice |
-| `VEV_4000` | Deep ITM | ~1250 | 300 | +5,247 | MM passif (δ≈1, comporte comme VE) |
+| `VEV_4000` | Deep ITM | ~1250 | 300 | +5,248 | MM passif (δ≈1, comporte comme VE) |
 | `VEV_4500` | Deep ITM | ~750 | 300 | +689 | MM passif |
 | `VEV_5000` | ITM | ~260 | 300 | +661 | MM passif |
 | `VEV_5100` | Near ITM | ~170 | 300 | +709 | MM passif |
 | `VEV_5200` → 6500 | ATM/OTM | | 0* | 0 | **Désactivés** (adverse selection -5k à -14k en MM simple) |
-| **TOTAL** | | | | **+33,036** | |
+| **TOTAL** | | | | **+72,392** | |
 
 > *Limit forcée à 0 dans `PRODUCT_PARAMS` pour désactiver le MM. Le flag `ENABLE_VEV_5400_SCALPING` peut réactiver un scalping dédié sur 5400 (actuellement off — voir §5).
 
@@ -162,6 +164,8 @@ R3/
 ├── debug_scalp.py                  ← instrumentation scalping (fréquence triggers, distribs)
 ├── test_vev_reenable.py            ← test réactivation VEV 5200+ sans BS (tous fail)
 ├── tune_hyd_ve.py                  ← grid search HYD/VE make_edge (flat)
+├── tune_hyd_live_robust.py         ← grid live-robust post-submit 369298 (→ config G)
+├── tune_hyd_deep.py                ← sensibilité blend × clip, stabilité per-day
 ├── manual_biopods.py               ← optim bids Bio-Pods (recommande 750/840)
 │
 ├── data/
@@ -186,7 +190,7 @@ R3/
 |---|---|---:|---|
 | R1 | #366 | +12,157 | Osmium MM v31 (triple_edge, Kalman), Pepper Kalman trend-guard |
 | R2 | similaire | +10,577 | v4_fixed_v2 : Osmium side channel + Pepper snap-back + bid MAF=500 |
-| R3 | TBD | **+33,036 backtest** | MM HYD+VE+VEV ITM, VEV ATM/OTM off. Manual Bio-Pods (750,840). |
+| R3 | TBD | **+72,392 backtest v4** | MM HYD adaptive (wiki limits 200/300, adaptive FV) + VE + VEV ITM. VEV ATM/OTM off. Manual Bio-Pods (750,840). |
 
 ---
 

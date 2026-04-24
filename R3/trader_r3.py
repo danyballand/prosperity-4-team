@@ -161,12 +161,24 @@ PRODUCT_PARAMS: Dict[str, dict] = {
         "snap_back_override_near_limit": True,  # permet MAKE même si pos=80
     },
     # === R3 NEW PRODUCTS ===
-    # HYDROGEL_PACK : stable ~10000 (similaire Osmium mais std plus haut)
+    # HYDROGEL_PACK : stable autour 10000 MAIS drift live révélé par submit 369298.
+    # Worst 100k ts day 2 : HYD -5,021 (live) = -5,025 (backtest local, match parfait).
+    # Problème : fixed_fv=10000 + make_edge=97 quote à 9903/10097, hors range de trading réel (mid ~9960-10020).
+    #
+    # Tuning 2026-04-24 (tune_hyd_live_robust.py) — grid blend × clip :
+    #   config                                   total 3d     HYD 3d   worst 100k
+    #   baseline fv=10000 fixe                    +33,036    +17,885     -4,494
+    #   adaptive blend=0.50 clip=10 (choix)       +72,392    +57,241     -2,446
+    # Gain uniforme +12k à +14k sur CHAQUE jour (0,1,2) → pas un overfit single-day.
+    #
     # Wiki R3 officiel : position_limit = 200 (on avait 80 -- corrigé 2026-04-24)
     "HYDROGEL_PACK": {
         **DEFAULT_PARAMS,
         "position_limit": 200,
         "fixed_fv": 10000,
+        "adaptive_fixed_fv": True,          # blend wall_mid dans le FV (suit le drift)
+        "fixed_fv_book_blend": 0.50,        # 50% wall_mid, 50% ancre 10000
+        "fixed_fv_book_clip": 10.0,         # cap drift ±10 ticks autour de 10000
         "take_width": 0,
         "inventory_aware_take": True,
         "take_skew_multiplier": 2.0,

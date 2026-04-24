@@ -336,3 +336,61 @@ Si on exécute en aggressive (hit bid 5300), on paie ~2 ticks par leg × 2 legs 
 
 **Total visé backtest : ~+28,500 SS** (contre +23,929 baseline actuelle).
 
+---
+
+# UPDATE 2 — Codex P4 reçu (2026-04-24, après-midi — suite)
+
+Quatrième et dernier volet Codex livré : spreads, baskets & stat arb multi-produits. Résultats dans `codex_p4_results/`.
+
+## Headline : aucun arb exécutable trouvé
+
+| Question | Résultat Codex | Exécutable ? |
+|---|---|---|
+| Violations butterfly convexité (mid) | **0** | — |
+| Violations butterfly (bid/ask exécutable) | **0** | ❌ mort |
+| Meilleure paire co-intégrée EV positive | VEV_5000 / VEV_5400 : EV=+8.6 ticks | ❌ `tradable_arb_count=0`, freq=0.33/jour |
+| Synthétique VE via VEV_4500 + K | Edge max 1 tick | ❌ 1 timestamp sur 3 jours |
+| Theta proxy (tous strikes) | Edge net après spread **TOUS négatifs** (-1 à -52) | ❌ spread mange tout |
+| HYD pair trade | Corr avec VEV : 0.002-0.006 | ❌ pas de signal |
+| Puts cachés | Non, VEV = calls | — |
+
+## Détail des "faux positifs"
+
+Les paires co-intégrées avec EV positive affichent toutes :
+- `tradable_arb_count = 0` → l'edge existe au **mid** mais pas exécutable bid/ask
+- `opportunities_per_day ≤ 0.67` → 2 trades/3 jours max
+- Capital requis énorme (200-1300 ticks de marge)
+
+**Exemple VEV_5000 / VEV_5400** : EV théorique 8.6 ticks/trade × 1 trade = **8.6 SS sur 3 jours**. Même si on exécutait, c'est dans le bruit.
+
+**Theta proxy** : sur tous les strikes, `realized_decay` > `bs_theta_decay` → le marché a sous-décaïé. Mais le spread bid/ask est supérieur à l'edge. Non exploitable.
+
+## Conclusion P4
+
+**P4 VALIDE la direction A+B** : aucun pattern stat arb viable n'existe côté VEVs au-delà de ce qu'on a déjà (le fit de surface et le Z-score résidu sur 5400). 
+
+Les "alphas cachés" espérés (arb convexité, pair stable tradable, synthétique VE) sont **tous négatifs ou non-exécutables**. Les seuls edges actionnables restent :
+1. MM passif sur HYD / VE / VEV_4000 / VEV_4500 / VEV_5000 / VEV_5100 (baseline v2)
+2. Scalping Z-score VEV_5400 en LONG-only (plan B)
+
+## Matrice finale
+
+| Chemin | Backtest estimé | Décision |
+|---|---:|---|
+| **A Safe** : baseline v2 + tuning HYD/VE | ~+28,000 SS | ✅ GO |
+| **B Scalping 5400** : A + Z-score résidu | ~+28,340 SS | ✅ GO (en A/B test) |
+| ~~C Full alpha~~ | — | ❌ écarté |
+| ~~D Stat arb (P4)~~ | — | ❌ écarté (aucun arb exécutable) |
+
+## Codex terminé — bilan complet
+
+| Phase | Livrable | Verdict final |
+|---|---|---|
+| P1 | IV surface + mispricings | ✅ edge 5400 LONG confirmé |
+| P1 follow-up | Rolling / flow / Z-score / TTE | ✅ Z-score scalping |
+| P2 | Delta hedge empirique | ✅ δ=0.09 pour 5400, hedge VE |
+| P3 | Microstructure | ✅ 5300 SHORT mort, 5400 safe |
+| P4 | Spreads / stat arb | ❌ aucun arb nouveau trouvé |
+
+**Tous les prompts Codex sont terminés.** Direction claire : implémenter A+B.
+

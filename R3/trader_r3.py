@@ -7,8 +7,32 @@ Ajouts :
   - Informed trader detector LIVE-ONLY (safe en backtest)
 """
 import json
+import math
 from typing import Dict, List, Optional, Tuple
 from datamodel import Order, OrderDepth, TradingState
+
+# R3 : modules options (BS pricing + IV surface fit + Z-score scalping)
+try:
+    from bs_pricing import call_price, implied_vol, delta as bs_delta, vega as bs_vega
+    from iv_surface import fit_quadratic, evaluate_surface, IVSurfaceTracker
+    _OPTIONS_MODULES_OK = True
+except ImportError:
+    _OPTIONS_MODULES_OK = False
+
+# =====================  SCALPING CONFIG  =====================
+# Testé : backtest A+B donne +32,986 vs A seul +33,036 (-50 SS noise).
+# Le signal Codex +1.43 ticks/trade existe mais nécessite exit non-aggressive
+# qui est impossible sur 5400 (flux 100% at-bid = personne ne lève l'ask).
+# Désactivé par défaut, code conservé pour itération R3 day 2/3.
+ENABLE_VEV_5400_SCALPING = False  # flag A/B : True = scalping actif
+SCALP_TARGET_STRIKE = 5400
+SCALP_POS_CAP = 150               # half of limit 300
+SCALP_Z_ENTRY = -2.0              # buy when Z < entry
+SCALP_Z_EXIT  = 0.0               # sell when Z > exit
+SCALP_Z_KILL  = 2.5               # flatten aggressive if Z > kill
+SCALP_TTE_DAYS = 5                # live R3 : TTE = 5d
+SCALP_TRADING_DAYS_YEAR = 250
+SCALP_MIN_IV_POINTS = 5           # min strikes pour fit quadratique
 
 
 POSITION_LIMIT = 80
@@ -195,6 +219,11 @@ _VEV_STRIKES = [4000, 4500, 5000, 5100, 5200, 5300, 5400, 5500, 6000, 6500]
 # TODO : quand on aura BS/IV pricing, réactiver V5200+ avec edge adaptatif.
 _VEV_LIMIT_OFFICIAL = 300  # wiki R3
 _VEV_DISABLED = {5200, 5300, 5400, 5500, 6000, 6500}
+# Si scalping VEV_5400 actif : retirer 5400 du disabled (limit 300 pour accepter fills).
+# La MM baseline émettra quand même des orders, mais elles seront écrasées par
+# scalp_orders dans Trader.run() -- donc pas d'impact sur la PnL.
+if ENABLE_VEV_5400_SCALPING:
+    _VEV_DISABLED.discard(5400)
 for _strike in _VEV_STRIKES:
     _sym = f"VEV_{_strike}"
     if _strike in _VEV_DISABLED:
@@ -933,6 +962,143 @@ def trade_product(product: str, state: TradingState, trader_data: dict) -> List[
     return orders
 
 
+# =====================  VEV_5400 SCALPING (Plan B)  =====================
+# Logique : fit de surface IV quadratique à chaque tick, calcul du résidu
+# IV_5400 - surface(5400), update EMA stats, génère orders si Z < entry ou Z > exit.
+#
+# Codex P1 : +1.43 ticks edge LONG sur 5400. Follow-up Q3 : résidu AR(1)=0.948,
+# half-life 12.9 ts, R²=0.001 vs dS (indépendant du move VE).
+# Follow-up Q2 : 100% du flux 5400 est at-bid → on LONG-only, exit aggressive.
+
+
+def _mid_from_depth(depth: OrderDepth) -> Optional[float]:
+    if not depth or not depth.buy_orders or not depth.sell_orders:
+        return None
+    return 0.5 * (max(depth.buy_orders.keys()) + min(depth.sell_orders.keys()))
+
+
+def _best_bid_ask(depth: OrderDepth) -> Tuple[Optional[int], Optional[int]]:
+    bb = max(depth.buy_orders.keys()) if depth and depth.buy_orders else None
+    ba = min(depth.sell_orders.keys()) if depth and depth.sell_orders else None
+    return bb, ba
+
+
+def _infer_tte_days(timestamp: int) -> float:
+    """
+    TTE en jours depuis timestamp du tick.
+    - Backtest : day 0 → TTE 8d, day 1 → TTE 7d, day 2 → TTE 6d (wiki R3)
+    - Live R3 : TTE 5d constant.
+    - On dérive le day-index depuis timestamp // 1_000_000 (historical), sinon 5d.
+    """
+    try:
+        day_idx = int(timestamp) // 1_000_000
+        if 0 <= day_idx <= 2:
+            return 8.0 - day_idx   # day0=8d, day1=7d, day2=6d
+    except Exception:
+        pass
+    return float(SCALP_TTE_DAYS)
+
+
+def _scalp_vev_5400(state: TradingState, trader_data: dict, current_position: int) -> List[Order]:
+    """
+    Génère les ordres VEV_5400 basés sur signal IV-surface Z-score.
+    Retourne [] si modules options indisponibles ou données insuffisantes.
+    """
+    if not _OPTIONS_MODULES_OK or not ENABLE_VEV_5400_SCALPING:
+        return []
+
+    depths = state.order_depths
+    ve_depth = depths.get("VELVETFRUIT_EXTRACT")
+    target_sym = f"VEV_{SCALP_TARGET_STRIKE}"
+    target_depth = depths.get(target_sym)
+    if ve_depth is None or target_depth is None:
+        return []
+
+    S = _mid_from_depth(ve_depth)
+    if S is None or S <= 0:
+        return []
+
+    tte_years = _infer_tte_days(state.timestamp) / SCALP_TRADING_DAYS_YEAR
+    if tte_years <= 0:
+        return []
+
+    # 1) IV par strike (prend tous les VEV avec mid valide)
+    ivs = []  # list of (ln_moneyness, iv)
+    target_iv = None
+    for strike in [4500, 5000, 5100, 5200, 5300, 5400, 5500, 6000]:
+        sym = f"VEV_{strike}"
+        d = depths.get(sym)
+        mid = _mid_from_depth(d)
+        if mid is None or mid <= 0:
+            continue
+        iv = implied_vol(mid, S, strike, tte_years, 0.0)
+        if iv is None or iv <= 0.01 or iv >= 4.0:
+            continue
+        x = math.log(strike / S)
+        ivs.append((x, iv))
+        if strike == SCALP_TARGET_STRIKE:
+            target_iv = iv
+
+    if len(ivs) < SCALP_MIN_IV_POINTS or target_iv is None:
+        return []
+
+    # 2) Fit quadratique ax²+bx+c
+    xs = [p[0] for p in ivs]
+    ys = [p[1] for p in ivs]
+    coefs = fit_quadratic(xs, ys)
+    if coefs is None:
+        return []
+
+    # 3) Résidu = IV_target - surface(ln(K/S))
+    x_target = math.log(SCALP_TARGET_STRIKE / S)
+    iv_surface = evaluate_surface(coefs, x_target)
+    residual = target_iv - iv_surface
+    # Positif = IV au-dessus de la surface → call cher
+    # Négatif = IV sous la surface → call cheap → LONG signal
+
+    # 4) Update EMA tracker
+    pstate = trader_data.setdefault("_vev5400_scalp", {})
+    tracker = IVSurfaceTracker.load(pstate.get("tracker"))
+    tracker.update(residual)
+    z = tracker.z_score(residual)
+    pstate["tracker"] = tracker.dump()
+    pstate["last_z"] = round(z, 3) if z is not None else None
+
+    if z is None:
+        return []  # warmup, pas assez d'obs
+
+    # 5) Signal → orders
+    orders: List[Order] = []
+    bb, ba = _best_bid_ask(target_depth)
+    if bb is None or ba is None:
+        return []
+
+    pos = int(current_position)
+    pos_room_long = SCALP_POS_CAP - pos
+    pos_room_short = SCALP_POS_CAP + pos   # distance to -cap (on autorise short modéré)
+
+    # === ENTRY : LONG bid passif quand Z très négatif (IV cheap) ===
+    if z <= SCALP_Z_ENTRY and pos_room_long > 0:
+        # Quote inside, 1 tick au-dessus du best bid (pennying) si spread >= 2
+        bid_px = bb + 1 if (ba - bb) >= 2 else bb
+        # Taille = 30 par trade max, cap à 150 total
+        size = min(30, pos_room_long)
+        orders.append(Order(target_sym, bid_px, size))
+
+    # === EXIT : SELL aggressive si on a du stock et Z>exit ===
+    elif z >= SCALP_Z_EXIT and pos > 0:
+        # Hit bid pour sortir (flux est 100% at-bid donc bid liquide)
+        sell_size = min(pos, 30)
+        # Hit best bid pour fill immédiat (pas pennying côté sell)
+        orders.append(Order(target_sym, bb, -sell_size))
+
+    # === KILL SWITCH : flatten forcé si Z très positif et encore long ===
+    elif z >= SCALP_Z_KILL and pos > 0:
+        orders.append(Order(target_sym, bb, -pos))
+
+    return orders
+
+
 class Trader:
     def run(self, state: TradingState) -> Tuple[Dict[str, List[Order]], int, str]:
         try:
@@ -951,6 +1117,20 @@ class Trader:
             except Exception as e:
                 print(f"ERR {state.timestamp} {product} {type(e).__name__}:{e}")
                 result[product] = []
+
+        # R3 Plan B : scalping VEV_5400 via surface IV + Z-score résidu
+        # Override orders pour VEV_5400 si module disponible et flag actif.
+        if ENABLE_VEV_5400_SCALPING and _OPTIONS_MODULES_OK:
+            try:
+                target_sym = f"VEV_{SCALP_TARGET_STRIKE}"
+                if target_sym in state.order_depths:
+                    pos = state.position.get(target_sym, 0) if state.position else 0
+                    scalp_orders = _scalp_vev_5400(state, trader_data, pos)
+                    if scalp_orders:
+                        # Cap avec le limit officiel (300)
+                        result[target_sym] = _cap_gross_orders(scalp_orders, 300)
+            except Exception as e:
+                print(f"ERR SCALP {state.timestamp} {type(e).__name__}:{e}")
 
         try:
             out = json.dumps(trader_data, separators=(",", ":"))

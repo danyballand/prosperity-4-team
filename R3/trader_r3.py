@@ -163,23 +163,40 @@ PRODUCT_PARAMS: Dict[str, dict] = {
     # === R3 NEW PRODUCTS ===
     # HYDROGEL_PACK : stable autour 10000 MAIS drift live révélé par submit 369298.
     # Worst 100k ts day 2 : HYD -5,021 (live) = -5,025 (backtest local, match parfait).
-    # Problème : fixed_fv=10000 + make_edge=97 quote à 9903/10097, hors range de trading réel (mid ~9960-10020).
+    # Problème v3 : fixed_fv=10000 + make_edge=97 quote à 9903/10097, hors range réel (mid ~9960-10020).
     #
-    # Tuning 2026-04-24 (tune_hyd_live_robust.py) — grid blend × clip :
-    #   config                                   total 3d     HYD 3d   worst 100k
-    #   baseline fv=10000 fixe                    +33,036    +17,885     -4,494
-    #   adaptive blend=0.50 clip=10 (choix)       +72,392    +57,241     -2,446
-    # Gain uniforme +12k à +14k sur CHAQUE jour (0,1,2) → pas un overfit single-day.
+    # Tuning v4 2026-04-24 (tune_hyd_live_robust.py) — adaptive FV :
+    #   baseline fv=10000 fixe                    +33,036    worst 100k  -4,494
+    #   v4 : adaptive blend=0.50 clip=10          +72,392    worst 100k  -2,446
     #
-    # Wiki R3 officiel : position_limit = 200 (on avait 80 -- corrigé 2026-04-24)
+    # AUDIT v4 2026-04-24 (audit externe) — 2 P1 CRITIQUES restants :
+    #   P1. clip=10 trop étroit : FV cappé à 9995 quand mid descend à 9915 → FV toujours haut,
+    #       on continue à MAKE bid et à TAKE des asks pendant la chute.
+    #   P1. take_width=0 = falling-knife buyer : n'importe quel ask <= fv est pris, pas d'edge réel.
+    #   Evidence live : submit 369858, position +200 HYD à ts=50k (mid=9952), reste +200 pendant
+    #   toute la chute vers 9915, avg buy 9994 vs final mid 9960 = -34 ticks/unit × 200 structurel.
+    #
+    # Tuning v5 2026-04-24 (tune_hyd_v5_audit.py / tune_hyd_v5_deep.py) — fixes audit :
+    #   config                                   total 3d     HYD 3d    worst 100k
+    #   v4   (clip=10 tw=0)                       +72,392    +57,241   -2,446
+    #   v5a  (clip=30 tw=2)                      +132,390   +117,239   +1,479
+    #   v5   (clip=50 tw=2) ← CHOIX              +139,420   +124,269   +2,931
+    #   v5b  (clip=75 tw=3)                      +139,474   +124,322   +3,237 (noise)
+    # Per-day HYD : +43,349 / +41,595 / +39,325 (uniforme sur les 3 jours, pas d'overfit).
+    # worst 100k par jour : -1,564 / +106 / +2,931 (vs v4 : -4,255 / -3,846 / -2,446).
+    #
+    # Trend_guard et reduce position_limit testés (V11/V14-V16) — non retenus :
+    #   trend_guard : no-op sur HYD (drift bounded, thresholds never hit)
+    #   position_limit=100 : coupe 3d à +88k pour +1k sur 100k = mauvais trade-off
+    # Wiki R3 officiel : position_limit = 200
     "HYDROGEL_PACK": {
         **DEFAULT_PARAMS,
         "position_limit": 200,
         "fixed_fv": 10000,
         "adaptive_fixed_fv": True,          # blend wall_mid dans le FV (suit le drift)
         "fixed_fv_book_blend": 0.50,        # 50% wall_mid, 50% ancre 10000
-        "fixed_fv_book_clip": 10.0,         # cap drift ±10 ticks autour de 10000
-        "take_width": 0,
+        "fixed_fv_book_clip": 50.0,         # v5 : cap ±50 (était 10, fix P1 audit)
+        "take_width": 2,                    # v5 : 0 = falling-knife (fix P1 audit)
         "inventory_aware_take": True,
         "take_skew_multiplier": 2.0,
         "make_edge": 97,

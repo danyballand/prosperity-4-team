@@ -1,17 +1,17 @@
 # Round 3 — "Gloves Off" : Options Trading
 
-> **État** : submit-ready v4 — backtest `+72,392 SS` sur 3 jours.
+> **État** : submit-ready v5 — backtest `+139,420 SS` sur 3 jours.
 > **Lead** : Dany. **Date** : 2026-04-24.
-> **Dernière mise à jour** : après submit IMC 369298 + fix HYD adaptive FV (+39k gain).
+> **Dernière mise à jour** : après audit externe v4 → fix P1 clip + take_width (HYD +67k).
 
 ---
 
 ## 1 · TL;DR pour l'équipe
 
-- **Backtest total 3 jours** : **+72,392 SS** (v4, adaptive HYD).
-- **Évolution** : +23,929 (v1) → +33,036 (v3 wiki fix limits) → **+72,392 (v4 adaptive HYD)**.
+- **Backtest total 3 jours** : **+139,420 SS** (v5, HYD audit-hardened).
+- **Évolution** : +23,929 (v1) → +33,036 (v3 wiki fix limits) → +72,392 (v4 adaptive) → **+139,420 (v5 audit-hardened)**.
 - **Stratégie** : MM passif sur HYD, VE, et VEV ITM (4000-5100). Strikes 5200+ désactivés (adverse selection non neutralisable sans BS pricing complet).
-- **Gain live-robustness** : submit IMC 369298 a révélé que `fixed_fv=10000 + make_edge=97` quotait hors zone de trading réelle (bid 9903 / ask 10097 vs marché à 9960-10020). Fix = adaptive blend=0.5 clip=10 → HYD passe de +17,885 à **+57,241** sur 3j, gain uniforme +12-14k par jour.
+- **v5 audit fix** : submit 369858 a révélé 2 défauts structurels (audit externe validé chiffré) — `fixed_fv_book_clip=10` cappait le FV à 9995 quand le marché tombait à 9915 ; `take_width=0` faisait de HYD un falling-knife buyer. Fix : **clip=50 + take_width=2** → HYD passe de +57,241 à **+124,269** sur 3j et le pire 100k live-équivalent passe de **-4,255 à -1,564**.
 - **Scalping VEV_5400 testé** (Z-score IV surface residual) : -50 SS vs baseline → **désactivé** (flag `ENABLE_VEV_5400_SCALPING = False`). Code laissé en place pour itération future.
 - **Manual Bio-Pods** : bids recommandés **b1 = 750, b2 = 840** (E ~ 85 SS/trade).
 

@@ -1,0 +1,43 @@
+Round 3 VEV IV surface summary
+
+Assumptions: TTE starts at 7.0 trading days on day 0 timestamp 0 and decays linearly to about 4.0 trading days by day 2 close; TTE_years=TTE_days/250; r=0.
+The fitted surface is a quadratic in log-moneyness ln(K/S) per day. Z-scores use the day-level residual standard deviation after the quadratic fit.
+
+Overall EV ranking:
+ strike suggested_direction  best_mean_ev_ticks  mean_long_ev_ticks  mean_short_ev_ticks  mean_iv  mean_surface_iv  mean_residual  under_z2_pct  over_z2_pct  mean_half_spread  public_trade_count  public_trade_qty
+   5400                LONG              1.4277              1.4277              -2.8091   0.2070           0.2175        -0.0106        0.0000       0.0000            0.6907                 225               787
+   5300               SHORT              1.3167             -3.4235               1.3167   0.2209           0.2127         0.0082        0.0000       0.0000            1.0534                 121               420
+   5200               SHORT              0.1173             -3.0054               0.1173   0.2185           0.2131         0.0054        0.0000       0.0000            1.4441                  18                63
+   5500               AVOID             -0.2875             -0.2875              -0.8623   0.2246           0.2273        -0.0028        0.0000       0.0000            0.5749                 267               937
+   6000               AVOID             -0.3257             -0.6743              -0.3257   0.3560           0.3416         0.0144        0.0000       0.0187            0.5000                 284              1002
+   6500               AVOID             -0.4421             -0.4421              -0.5579   0.5394           0.5456        -0.0062        0.0005       0.0000            0.5000                 284              1002
+   5100               AVOID             -1.6708             -1.6708              -2.6250   0.2160           0.2190        -0.0030        0.0000       0.0000            2.1479                   1                 1
+   5000               AVOID             -1.8904             -1.8904              -4.1550   0.2181           0.2308        -0.0127        0.0105       0.0000            3.0217                   1                 1
+   4500               AVOID             -7.2654             -8.5097              -7.2654   0.4212           0.3911         0.0312        0.0000       0.0851            7.9263                   1                 1
+   4000               AVOID             -9.7251            -10.3743              -9.7251   0.7455           0.7649        -0.0191        0.0540       0.0223           10.4067                 464               940
+
+Day-by-day VEV_5400:
+ day  mean_iv  mean_surface_iv  mean_residual  mean_long_ev_ticks  mean_short_ev_ticks  under_z2_pct  over_z2_pct
+   0   0.2039           0.2125        -0.0086              1.2550              -2.6847        0.0000       0.0000
+   1   0.2065           0.2175        -0.0110              1.5331              -2.9195        0.0000       0.0000
+   2   0.2106           0.2227        -0.0121              1.4949              -2.8231        0.0000       0.0000
+
+Top long candidates:
+ strike  mean_long_ev_ticks  mean_iv  mean_surface_iv  mean_half_spread
+   5400              1.4277   0.2070           0.2175            0.6907
+   5500             -0.2875   0.2246           0.2273            0.5749
+   6500             -0.4421   0.5394           0.5456            0.5000
+
+Top short candidates:
+ strike  mean_short_ev_ticks  mean_iv  mean_surface_iv  mean_half_spread
+   5300               1.3167   0.2209           0.2127            1.0534
+   5200               0.1173   0.2185           0.2131            1.4441
+   6000              -0.3257   0.3560           0.3416            0.5000
+
+Fit diagnostics:
+ day  coef_quad  coef_linear  coef_intercept  residual_std  valid_points
+   0   6.440137    -0.037305        0.208184      0.012710         83988
+   1   7.303049    -0.021260        0.212109      0.016273         84040
+   2   8.460321     0.003509        0.216236      0.020316         83757
+
+Verdict: prefer strikes with positive mean EV and stable residual sign. Best aggregate candidate by this metric is 5400 LONG at 1.43 ticks mean net EV. The weakest aggregate candidate is 4000 at -9.73 ticks. Deep tails need extra care because vega is small and tick discretization dominates the IV inversion.

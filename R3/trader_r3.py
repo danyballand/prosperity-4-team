@@ -138,9 +138,10 @@ PRODUCT_PARAMS: Dict[str, dict] = {
     },
     # === R3 NEW PRODUCTS ===
     # HYDROGEL_PACK : stable ~10000 (similaire Osmium mais std plus haut)
+    # Wiki R3 officiel : position_limit = 200 (on avait 80 -- corrigé 2026-04-24)
     "HYDROGEL_PACK": {
         **DEFAULT_PARAMS,
-        "position_limit": 80,
+        "position_limit": 200,
         "fixed_fv": 10000,
         "take_width": 0,
         "inventory_aware_take": True,
@@ -185,12 +186,14 @@ PRODUCT_PARAMS: Dict[str, dict] = {
 
 # VEVs = call options sur VELVETFRUIT_EXTRACT, MM simple autour du wall_mid observé
 # Strikes 4000-6500. VEV_4000/4500 deep ITM → trade comme VE. Plus ATM = plus de time value.
+# Wiki R3 officiel : position_limit = 300 pour chaque VEV (on avait 50-200 -- corrigé 2026-04-24)
 _VEV_STRIKES = [4000, 4500, 5000, 5100, 5200, 5300, 5400, 5500, 6000, 6500]
 # Audit v1 (backtest 3j) :
 #   V4000=+5247, V4500=+689, V5000=+661, V5100=+709, V5200=-823, V5300=-779,
 #   V5400=-6046, V5500=-3641, V6000=0, V6500=0
 # Décision : trade que deep ITM (4000/4500) + near ATM (5000/5100). Disable le reste.
 # TODO : quand on aura BS/IV pricing, réactiver V5200+ avec edge adaptatif.
+_VEV_LIMIT_OFFICIAL = 300  # wiki R3
 _VEV_DISABLED = {5200, 5300, 5400, 5500, 6000, 6500}
 for _strike in _VEV_STRIKES:
     _sym = f"VEV_{_strike}"
@@ -198,10 +201,10 @@ for _strike in _VEV_STRIKES:
         _limit = 0     # disabled : MM sans BS = adverse selection
         _edge = 1
     elif _strike <= 4500:
-        _limit = 200   # deep ITM (quasi-delta 1, TV ~0)
+        _limit = _VEV_LIMIT_OFFICIAL   # deep ITM (quasi-delta 1, TV ~0)
         _edge = 5
     else:  # 5000, 5100
-        _limit = 100   # near ATM
+        _limit = _VEV_LIMIT_OFFICIAL   # near ATM
         _edge = 2
     PRODUCT_PARAMS[_sym] = {
         **DEFAULT_PARAMS,

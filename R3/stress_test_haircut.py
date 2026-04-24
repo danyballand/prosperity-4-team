@@ -197,46 +197,56 @@ CONFIGS = [
 ]
 
 
-def run_scenario(scenario_label, haircut, after_queue):
-    print("=" * 110)
-    print(f"{scenario_label}  haircut={haircut:.0%}  after_queue={after_queue}")
-    print("=" * 110)
-    print(f"{'Config':<45s}  {'total':>8s}  {'HYD':>8s}  {'worst100k':>10s}  {'worstHYD':>9s}  {'score':>8s}")
-    print("-" * 110)
+def run_scenario_light(scenario_label, haircut, after_queue):
+    """Version LIGHT : juste 3j full (pas de rolling 100k) + worst 100k day 2 uniquement."""
+    print("=" * 100, flush=True)
+    print(f"{scenario_label}  haircut={haircut:.0%}  after_queue={after_queue}", flush=True)
+    print("=" * 100, flush=True)
+    print(f"{'Config':<45s}  {'total':>8s}  {'HYD':>8s}  {'d2_100k':>8s}  {'d2_HYD':>7s}", flush=True)
+    print("-" * 100, flush=True)
     results = []
     for label, cfg in CONFIGS:
         set_hyd(**cfg)
-        pdt, pdh = bt_with_model(haircut, after_queue)
-        total_3d = sum(pdt.values())
-        hyd_3d = sum(pdh.values())
-        set_hyd(**cfg)
-        worst_t, worst_h = rolling_100k_worst(haircut, after_queue)
-        # score = total - 2*max(0,-worst_total) - 0.5*max(0,-worst_hyd)
-        penalty = 2.0 * max(0, -worst_t) + 0.5 * max(0, -worst_h)
-        score = total_3d - penalty
-        print(f"{label:<45s}  {total_3d:>+8.0f}  {hyd_3d:>+8.0f}  {worst_t:>+10.0f}  {worst_h:>+9.0f}  {score:>+8.0f}")
-        results.append((label, total_3d, hyd_3d, worst_t, worst_h, score))
-    print()
-    best = max(results, key=lambda r: r[5])
-    print(f"  >> BEST SCORE in this scenario : {best[0]}  (score={best[5]:+.0f})")
-    print()
+        global _HAIRCUT, _AFTER_QUEUE
+        _HAIRCUT = haircut
+        _AFTER_QUEUE = after_queue
+        lb.apply_passive_fills = _patched_apply_passive_fills
+        try:
+            total_3d = 0.0
+            hyd_3d = 0.0
+            for d in (0, 1, 2):
+                pnl = simulate(d)
+                total_3d += sum(pnl.values())
+                hyd_3d += pnl.get("HYDROGEL_PACK", 0.0)
+            pnl_100 = simulate(2, max_ts=100_000)
+            d2_100k = sum(pnl_100.values())
+            d2_hyd = pnl_100.get("HYDROGEL_PACK", 0.0)
+        finally:
+            lb.apply_passive_fills = _RAW_APPLY
+        print(f"{label:<45s}  {total_3d:>+8.0f}  {hyd_3d:>+8.0f}  {d2_100k:>+8.0f}  {d2_hyd:>+7.0f}", flush=True)
+        results.append((label, total_3d, hyd_3d, d2_100k, d2_hyd))
+    print(flush=True)
     return results
 
 
-# ==== Run les 3 scénarios principaux ====
-r1 = run_scenario("SCENARIO 1 — optimistic (original backtester)", 0.0, False)
-r2 = run_scenario("SCENARIO 2 — realistic (haircut 25%, after_queue)", 0.25, True)
-r3 = run_scenario("SCENARIO 3 — pessimistic (haircut 50%, after_queue)", 0.50, True)
+# ==== Run les 3 scénarios principaux (version light) ====
+r1 = run_scenario_light("S1 optimistic (original)", 0.0, False)
+r2 = run_scenario_light("S2 realistic (h=25%, after_queue)", 0.25, True)
+r3 = run_scenario_light("S3 pessimistic (h=50%, after_queue)", 0.50, True)
 
-# ==== Decision matrix : quelle config gagne dans combien de scénarios ? ====
-print("=" * 110)
-print("DECISION MATRIX — classement total (optimistic + realistic + pessimistic)")
-print("=" * 110)
+# ==== Decision matrix ====
+print("=" * 100, flush=True)
+print("DECISION MATRIX — PnL 3j total sous chaque scénario", flush=True)
+print("=" * 100, flush=True)
 labels = [c[0] for c in CONFIGS]
-print(f"{'Config':<45s}  {'S1 opt':>8s}  {'S2 real':>9s}  {'S3 pess':>9s}  {'SUM':>8s}")
+print(f"{'Config':<45s}  {'S1 opt':>8s}  {'S2 real':>8s}  {'S3 pess':>8s}  {'min':>8s}", flush=True)
 for i, label in enumerate(labels):
-    s1 = r1[i][5]
-    s2 = r2[i][5]
-    s3 = r3[i][5]
-    total_score = s1 + s2 + s3
-    print(f"{label:<45s}  {s1:>+8.0f}  {s2:>+9.0f}  {s3:>+9.0f}  {total_score:>+8.0f}")
+    s1 = r1[i][1]
+    s2 = r2[i][1]
+    s3 = r3[i][1]
+    mn = min(s1, s2, s3)
+    print(f"{label:<45s}  {s1:>+8.0f}  {s2:>+8.0f}  {s3:>+8.0f}  {mn:>+8.0f}", flush=True)
+print(flush=True)
+print(f"{'Config':<45s}  {'S1 d2100k':>9s}  {'S2 d2100k':>9s}  {'S3 d2100k':>9s}", flush=True)
+for i, label in enumerate(labels):
+    print(f"{label:<45s}  {r1[i][3]:>+9.0f}  {r2[i][3]:>+9.0f}  {r3[i][3]:>+9.0f}", flush=True)

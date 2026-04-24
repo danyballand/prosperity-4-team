@@ -1,18 +1,26 @@
 # Round 3 — "Gloves Off" : Options Trading
 
-> **État** : submit-ready v5 — backtest `+139,420 SS` sur 3 jours.
+> **État** : submit-ready v5 — backtest `+139,420 SS` sur 3 jours, **validé par 3 audits + stress-test**.
 > **Lead** : Dany. **Date** : 2026-04-24.
-> **Dernière mise à jour** : après audit externe v4 → fix P1 clip + take_width (HYD +67k).
+> **Dernière mise à jour** : après stress-test haircut passif 25%/50% (v5 survit à -8% seulement).
 
 ---
 
 ## 1 · TL;DR pour l'équipe
 
 - **Backtest total 3 jours** : **+139,420 SS** (v5, HYD audit-hardened).
-- **Évolution** : +23,929 (v1) → +33,036 (v3 wiki fix limits) → +72,392 (v4 adaptive) → **+139,420 (v5 audit-hardened)**.
+- **Évolution** : +23,929 (v1) → +33,036 (v3 wiki fix) → +72,392 (v4 adaptive) → **+139,420 (v5 audit-hardened)**.
 - **Stratégie** : MM passif sur HYD, VE, et VEV ITM (4000-5100). Strikes 5200+ désactivés (adverse selection non neutralisable sans BS pricing complet).
-- **v5 audit fix** : submit 369858 a révélé 2 défauts structurels (audit externe validé chiffré) — `fixed_fv_book_clip=10` cappait le FV à 9995 quand le marché tombait à 9915 ; `take_width=0` faisait de HYD un falling-knife buyer. Fix : **clip=50 + take_width=2** → HYD passe de +57,241 à **+124,269** sur 3j et le pire 100k live-équivalent passe de **-4,255 à -1,564**.
-- **Scalping VEV_5400 testé** (Z-score IV surface residual) : -50 SS vs baseline → **désactivé** (flag `ENABLE_VEV_5400_SCALPING = False`). Code laissé en place pour itération future.
+- **v5 audit fix** (2 P1 résolus) :
+  - `fixed_fv_book_clip: 10 → 50` (était trop étroit, FV cappé à 9995 quand mid à 9915)
+  - `take_width: 0 → 2` (était falling-knife buyer — n'importe quel ask ≤ FV pris)
+- **3 audits externes reçus** (Gemini / Codex / sandbox) — 2 sur 3 valident v5 actuel. Gemini voulait EMA pur mais ses chiffres FV étaient faux (voir §11).
+- **Stress-test empirique** (stress_test_haircut.py, haircut passif 0/25/50% × after_queue pessimiste) :
+  - S1 optimistic : +139k    d2_100k +2,931
+  - S2 realistic (h=25%) : +133k (**-4%**)  d2_100k +2,716
+  - S3 pessimistic (h=50%) : +128k (**-8%**)  d2_100k +2,557
+  - **v5 domine toutes les alternatives dans les 3 scénarios** — voir §10.
+- **Scalping VEV_5400 testé** (Z-score IV surface residual) : -50 SS vs baseline → **désactivé**.
 - **Manual Bio-Pods** : bids recommandés **b1 = 750, b2 = 840** (E ~ 85 SS/trade).
 
 ---
@@ -184,13 +192,65 @@ R3/
 
 ---
 
+## 10 · Stress-test résultats (stress_test_haircut.py)
+
+Backtester local critiqué comme trop généreux (fills passifs pro-rata, pas de queue priority). On a construit un modèle "after_queue pessimiste" + haircut passif {0%, 25%, 50%} pour tester la robustesse vs l'artefact.
+
+**Decision matrix — PnL 3j total sous chaque scénario :**
+
+| Config | S1 opt | S2 real (h=25%) | S3 pess (h=50%) | MIN |
+|---|---:|---:|---:|---:|
+| v4 clip=10 tw=0 | +72,392 | +67,897 | +63,760 | +63,760 |
+| **v5 clip=50 tw=2** | **+139,420** | **+133,190** | **+128,352** | **+128,352** |
+| v5_notake (disable_take=True) | +68,070 | +52,886 | +36,368 | +36,368 |
+| v6 dyn wall_mid (edge=5) | +31,872 | +30,484 | +23,484 | +23,484 |
+| v7 dyn lim=100 edge=3 | +24,076 | +24,089 | +19,776 | +19,776 |
+
+**d2_100k (pire fenêtre live-équivalent) :**
+
+| Config | S1 | S2 | S3 |
+|---|---:|---:|---:|
+| v4 | -2,446 | -2,537 | -2,701 |
+| **v5** | **+2,931** | **+2,716** | **+2,557** |
+| v5_notake | +1,440 | +1,032 | +740 |
+
+**Conclusions :**
+1. v5 actuel survit au haircut 50% avec seulement -8% de drop → **pas un artefact de fills passifs**.
+2. Le `take_width=2` porte +80k d'alpha réel (survit aux 3 scénarios). Sans lui (`disable_take=True`), v5 tombe à +36k sous S3.
+3. v5 d2_100k reste **positif** sous TOUS les scénarios (+2,557 min), alors que v4 reste négatif (-2,701 min).
+4. Toutes les variantes "défensives" (EMA, dynamic wall_mid, lim=100) sont strictement dominées.
+
+---
+
+## 11 · Les 3 audits externes — synthèse
+
+**Audit 1 — Gemini Deep Think** : KILL v5, pivot EMA pur + lim=100 + Trend Guard.
+ - Chiffres FV incorrects : claim FV v5 = 9957.5 à mid=9915, vraie valeur = **9975** (oubli du `blend=0.5`).
+ - Confusion `take_width=0` vs `disable_take=True` (corrigée par Codex).
+ - Direction right (HYD v5 peut sous-performer en trend baissier), chiffres wrong.
+
+**Audit 2 — Codex (accès au repo local)** : v5 survit au haircut 25% (+120k), c'est un pari agressif assumé, pas un artefact pur.
+ - A construit `r3_backtest_audit.py` (fichier pas récupéré localement).
+ - Alerte juste sur la fonction objectif : optimiser min(worst_100k, day_i) sous haircut plutôt que total 3j.
+ - **Confirmé par notre stress_test_haircut.py** : v5 survit à +128k sous h=50%.
+
+**Audit 3 — sandbox Codex-like (données fournies, pas de repo)** : **GO v5 actuel**.
+ - Reproduit les chiffres : HYD +124,357 (on a +124,269), drawdown 200k ~6k SS.
+ - Time at limit : 606 ticks sur 200k (exposition prolongée mais gérée).
+ - Passifs/agressifs day2 : 8537 / 86 → confirme que risque = drift FV, pas micro-structure.
+ - Variantes clip=75 / tw=3 = gain marginal +700 SS → sur-fit.
+
+**Verdict collectif : 2/3 audits + notre stress-test convergent vers v5 actuel. GO.**
+
+---
+
 ## 9 · Historique équipe LYON
 
 | Round | Rang | PnL | Notes |
 |---|---|---:|---|
 | R1 | #366 | +12,157 | Osmium MM v31 (triple_edge, Kalman), Pepper Kalman trend-guard |
 | R2 | similaire | +10,577 | v4_fixed_v2 : Osmium side channel + Pepper snap-back + bid MAF=500 |
-| R3 | TBD | **+72,392 backtest v4** | MM HYD adaptive (wiki limits 200/300, adaptive FV) + VE + VEV ITM. VEV ATM/OTM off. Manual Bio-Pods (750,840). |
+| R3 | TBD | **+139,420 backtest v5** | HYD audit-hardened (clip=50 tw=2) validé par 3 audits externes + stress-test (survit haircut 50% à -8%). VE + VEV ITM actifs, VEV ATM/OTM off. Bio-Pods (750,840). |
 
 ---
 

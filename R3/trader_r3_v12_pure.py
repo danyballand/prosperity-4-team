@@ -1,4 +1,8 @@
 """
+=== v12_pure ===
+v12 PURE — match exact 401365/402921 = +22,776 confirmé.
+"""
+"""
 IMC Prosperity 4 Round 1 — v16
 Base : code du pote (triple_edge, trend_guard, bootstrap_entry, kalman)
 Ajouts :

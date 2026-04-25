@@ -1,4 +1,10 @@
 """
+=== v29_post_avoid ===
+v29 POST_AVOID — après zone AVOID (falling knife), achat sur rebound mean-revert.
+Hypothèse : le marché rebound systématiquement après une chute brutale.
+Live attendu : +22,000 à +24,500. Risque -1k si pas de rebound.
+"""
+"""
 IMC Prosperity 4 Round 1 — v16
 Base : code du pote (triple_edge, trend_guard, bootstrap_entry, kalman)
 Ajouts :
@@ -222,6 +228,8 @@ PRODUCT_PARAMS: Dict[str, dict] = {
         "hyd_regime_long_thresh": 9950,
         "hyd_regime_mom_window": 5,
         "hyd_short_lite_size": 30,              # v12 single-level
+        "hyd_post_avoid_long": True,             # v29 : LONG après AVOID rebound
+        "hyd_bounce_size": 30,
     },
     # VELVETFRUIT_EXTRACT : underlying des options. Prix dérive légèrement (5250→5295 sur 3j).
     # v1 avec fixed_fv=5250 + make_edge=50 → -15,910 (on achète pendant que ça monte).

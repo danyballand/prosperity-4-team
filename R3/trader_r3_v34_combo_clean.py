@@ -1,4 +1,10 @@
 """
+=== v34_combo_clean ===
+v34 COMBO_CLEAN — v12 + LONG_LITE + BIG_SIGNAL + VEV_4000 inside.
+3 patches additifs sans risque catastrophique en backtest.
+Live attendu : +22,000 à +25,500. Risque -1k worst, gain +3k best.
+"""
+"""
 IMC Prosperity 4 Round 1 — v16
 Base : code du pote (triple_edge, trend_guard, bootstrap_entry, kalman)
 Ajouts :
@@ -222,6 +228,9 @@ PRODUCT_PARAMS: Dict[str, dict] = {
         "hyd_regime_long_thresh": 9950,
         "hyd_regime_mom_window": 5,
         "hyd_short_lite_size": 30,              # v12 single-level
+        "hyd_long_lite_enable": True,           # v25
+        "hyd_big_signal": True,                  # v28
+        "hyd_short_big_size": 60,
     },
     # VELVETFRUIT_EXTRACT : underlying des options. Prix dérive légèrement (5250→5295 sur 3j).
     # v1 avec fixed_fv=5250 + make_edge=50 → -15,910 (on achète pendant que ça monte).
@@ -301,6 +310,7 @@ for _strike in _VEV_STRIKES:
         "position_limit": _limit,
         "vev_otm_long": _vev_otm_long,
         "vev_otm_qty": 10,
+        "vev_4000_inside_aggressive": (_strike == 4000),
         "use_smile_taker": _vev_multi_taker,
         "taker_threshold": _VEV_MULTI_TAKER.get(_strike, (3.0, 30, 100))[0] if _vev_multi_taker else 3.0,
         "taker_max_clip": _VEV_MULTI_TAKER.get(_strike, (3.0, 30, 100))[1] if _vev_multi_taker else 30,

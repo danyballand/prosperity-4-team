@@ -1,4 +1,11 @@
 """
+=== v31_4000_inside ===
+v31 VEV_4000_INSIDE — force quotes inside (bb+1 / ba-1) sur VEV_4000.
+Codex : passive markout +9.7/+10.2 si captured, capacity +4,500 sur 3j.
+401365 capture seulement +52 → queue priority. Force inside = bypass queue.
+Live attendu : -2k worst à +3k best. EXPÉRIMENTAL.
+"""
+"""
 IMC Prosperity 4 Round 1 — v16
 Base : code du pote (triple_edge, trend_guard, bootstrap_entry, kalman)
 Ajouts :
@@ -301,6 +308,7 @@ for _strike in _VEV_STRIKES:
         "position_limit": _limit,
         "vev_otm_long": _vev_otm_long,
         "vev_otm_qty": 10,
+        "vev_4000_inside_aggressive": (_strike == 4000),
         "use_smile_taker": _vev_multi_taker,
         "taker_threshold": _VEV_MULTI_TAKER.get(_strike, (3.0, 30, 100))[0] if _vev_multi_taker else 3.0,
         "taker_max_clip": _VEV_MULTI_TAKER.get(_strike, (3.0, 30, 100))[1] if _vev_multi_taker else 30,

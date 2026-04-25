@@ -1,4 +1,10 @@
 """
+=== v23_5400_sell ===
+v23 5400_SELL — v12 + Codex's only positive IV signal.
+Pattern : market_bid > smile_FV → SELL. Conditional, zero downside vs v12.
+Live attendu : +22,800 à +23,300 (capacity Codex +200 SS jour2).
+"""
+"""
 IMC Prosperity 4 Round 1 — v16
 Base : code du pote (triple_edge, trend_guard, bootstrap_entry, kalman)
 Ajouts :
@@ -266,7 +272,7 @@ _VEV_STRIKES = [4000, 4500, 5000, 5100, 5200, 5300, 5400, 5500, 6000, 6500]
 # Décision : trade que deep ITM (4000/4500) + near ATM (5000/5100). Disable le reste.
 # TODO : quand on aura BS/IV pricing, réactiver V5200+ avec edge adaptatif.
 _VEV_LIMIT_OFFICIAL = 300  # wiki R3
-_VEV_DISABLED = {5200, 5300, 5400, 5500, 6000, 6500}
+_VEV_DISABLED = {5200, 5300, 5500, 6000, 6500}
 # v12 testé live : long-bid OTM = jamais filled (queue priority). ABANDONNÉ.
 _VEV_OTM_LONG_BID = set()
 # v15 testé live : multi-strike taker = -6 SS, biais smile trop faibles sur 100k. ABANDONNÉ.
@@ -301,6 +307,8 @@ for _strike in _VEV_STRIKES:
         "position_limit": _limit,
         "vev_otm_long": _vev_otm_long,
         "vev_otm_qty": 10,
+        "vev_5400_sell_overlay": (_strike == 5400),
+        "vev_5400_sell_size": 5,
         "use_smile_taker": _vev_multi_taker,
         "taker_threshold": _VEV_MULTI_TAKER.get(_strike, (3.0, 30, 100))[0] if _vev_multi_taker else 3.0,
         "taker_max_clip": _VEV_MULTI_TAKER.get(_strike, (3.0, 30, 100))[1] if _vev_multi_taker else 30,

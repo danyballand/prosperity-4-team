@@ -1,4 +1,10 @@
 """
+=== v32_combo_audacious ===
+v32 COMBO AUDACIEUX — v12 + 5400 SELL + LONG_LITE + BIG_SIGNAL + POST_AVOID.
+Empile 4 signaux théoriquement orthogonaux. Le live peut tout valider ou tout casser.
+Live attendu : -3k à +8k vs v12. Variance maximale.
+"""
+"""
 IMC Prosperity 4 Round 1 — v16
 Base : code du pote (triple_edge, trend_guard, bootstrap_entry, kalman)
 Ajouts :
@@ -222,6 +228,11 @@ PRODUCT_PARAMS: Dict[str, dict] = {
         "hyd_regime_long_thresh": 9950,
         "hyd_regime_mom_window": 5,
         "hyd_short_lite_size": 30,              # v12 single-level
+        "hyd_long_lite_enable": True,
+        "hyd_big_signal": True,
+        "hyd_short_big_size": 60,
+        "hyd_post_avoid_long": True,
+        "hyd_bounce_size": 30,
     },
     # VELVETFRUIT_EXTRACT : underlying des options. Prix dérive légèrement (5250→5295 sur 3j).
     # v1 avec fixed_fv=5250 + make_edge=50 → -15,910 (on achète pendant que ça monte).
@@ -266,7 +277,7 @@ _VEV_STRIKES = [4000, 4500, 5000, 5100, 5200, 5300, 5400, 5500, 6000, 6500]
 # Décision : trade que deep ITM (4000/4500) + near ATM (5000/5100). Disable le reste.
 # TODO : quand on aura BS/IV pricing, réactiver V5200+ avec edge adaptatif.
 _VEV_LIMIT_OFFICIAL = 300  # wiki R3
-_VEV_DISABLED = {5200, 5300, 5400, 5500, 6000, 6500}
+_VEV_DISABLED = {5200, 5300, 5500, 6000, 6500}
 # v12 testé live : long-bid OTM = jamais filled (queue priority). ABANDONNÉ.
 _VEV_OTM_LONG_BID = set()
 # v15 testé live : multi-strike taker = -6 SS, biais smile trop faibles sur 100k. ABANDONNÉ.
@@ -301,6 +312,8 @@ for _strike in _VEV_STRIKES:
         "position_limit": _limit,
         "vev_otm_long": _vev_otm_long,
         "vev_otm_qty": 10,
+        "vev_5400_sell_overlay": (_strike == 5400),
+        "vev_5400_sell_size": 5,
         "use_smile_taker": _vev_multi_taker,
         "taker_threshold": _VEV_MULTI_TAKER.get(_strike, (3.0, 30, 100))[0] if _vev_multi_taker else 3.0,
         "taker_max_clip": _VEV_MULTI_TAKER.get(_strike, (3.0, 30, 100))[1] if _vev_multi_taker else 30,

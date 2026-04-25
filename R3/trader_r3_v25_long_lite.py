@@ -1,4 +1,10 @@
 """
+=== v25_long_lite ===
+v25 LONG_LITE — v12 + HYD anti-bot-sell pattern.
+Live obs 401365 : 4 trades anon AT_BID, mo10k mean +15.5. Filter seller=SUBMISSION.
+Live attendu : +22,500 à +24,000. Risque -1k si live ≠ pattern.
+"""
+"""
 IMC Prosperity 4 Round 1 — v16
 Base : code du pote (triple_edge, trend_guard, bootstrap_entry, kalman)
 Ajouts :
@@ -222,6 +228,7 @@ PRODUCT_PARAMS: Dict[str, dict] = {
         "hyd_regime_long_thresh": 9950,
         "hyd_regime_mom_window": 5,
         "hyd_short_lite_size": 30,              # v12 single-level
+        "hyd_long_lite_enable": True,
     },
     # VELVETFRUIT_EXTRACT : underlying des options. Prix dérive légèrement (5250→5295 sur 3j).
     # v1 avec fixed_fv=5250 + make_edge=50 → -15,910 (on achète pendant que ça monte).

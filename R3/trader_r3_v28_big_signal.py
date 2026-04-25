@@ -1,4 +1,10 @@
 """
+=== v28_big_signal ===
+v28 BIG_SIGNAL — gros trade (qty>=5) = bot informé → SHORT 60 unités au lieu de 30.
+Hypothèse : la taille du trade signale la conviction du bot informé.
+Live attendu : +22,000 à +25,000. Risque -2k si signal noisy, gain +2k si fiable.
+"""
+"""
 IMC Prosperity 4 Round 1 — v16
 Base : code du pote (triple_edge, trend_guard, bootstrap_entry, kalman)
 Ajouts :
@@ -222,6 +228,8 @@ PRODUCT_PARAMS: Dict[str, dict] = {
         "hyd_regime_long_thresh": 9950,
         "hyd_regime_mom_window": 5,
         "hyd_short_lite_size": 30,              # v12 single-level
+        "hyd_big_signal": True,                  # v28 : qty>=5 → SHORT_BIG
+        "hyd_short_big_size": 60,
     },
     # VELVETFRUIT_EXTRACT : underlying des options. Prix dérive légèrement (5250→5295 sur 3j).
     # v1 avec fixed_fv=5250 + make_edge=50 → -15,910 (on achète pendant que ça monte).
